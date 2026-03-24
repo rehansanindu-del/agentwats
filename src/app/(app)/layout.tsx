@@ -1,0 +1,10 @@
+import { AppSidebar } from "@/components/app-sidebar";
+
+export default function AppLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex min-h-screen bg-slate-50">
+      <AppSidebar />
+      <main className="flex min-h-screen min-w-0 flex-1 flex-col overflow-y-auto">{children}</main>
+    </div>
+  );
+}

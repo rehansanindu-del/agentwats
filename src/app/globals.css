@@ -1,0 +1,35 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #f8fafc;
+  --foreground: #0f172a;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0b0f14;
+    --foreground: #e8eef6;
+  }
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 999px;
+}
+
+.dark .scrollbar-thin::-webkit-scrollbar-thumb,
+.scrollbar-thin.dark::-webkit-scrollbar-thumb {
+  background: #334155;
+}
