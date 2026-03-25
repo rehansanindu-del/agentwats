@@ -1,7 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import type { User } from "@supabase/supabase-js";
 import { toast } from "sonner";
+import { createClient as createSupabaseClient } from "@/lib/supabase/client";
 
 interface BotRow {
   prompt: string;
@@ -9,9 +11,11 @@ interface BotRow {
 }
 
 export function SettingsShell() {
+  const supabase = createSupabaseClient();
   const [accessToken, setAccessToken] = useState("");
   const [phoneNumberId, setPhoneNumberId] = useState("");
   const [businessAccountId, setBusinessAccountId] = useState("");
+  const [user, setUser] = useState<User | null>(null);
   const [savingWa, setSavingWa] = useState(false);
 
   const [prompt, setPrompt] = useState("");
@@ -44,23 +48,50 @@ export function SettingsShell() {
     void loadBot();
   }, [loadBot]);
 
-  async function saveWhatsapp(e: React.FormEvent) {
-    e.preventDefault();
+  useEffect(() => {
+    void (async () => {
+      const {
+        data: { user: authUser },
+      } = await supabase.auth.getUser();
+      setUser(authUser);
+    })();
+  }, [supabase]);
+
+  async function handleSave() {
     setSavingWa(true);
     try {
-      const res = await fetch("/api/whatsapp/connect", {
+      if (!user) {
+        window.alert("You must be logged in to save WhatsApp settings.");
+        toast.error("You must be logged in.");
+        return;
+      }
+
+      const payload = {
+        userId: user.id,
+        phoneNumberId: phoneNumberId.trim(),
+        accessToken: accessToken.trim(),
+      };
+
+      if (!payload.phoneNumberId || !payload.accessToken) {
+        window.alert("Phone Number ID and Access Token are required.");
+        toast.error("Phone Number ID and Access Token are required.");
+        return;
+      }
+
+      // Temporary debug log for production verification
+      console.log(payload);
+
+      const res = await fetch("/api/save-whatsapp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          access_token: accessToken.trim(),
-          phone_number_id: phoneNumberId.trim(),
-          business_account_id: businessAccountId.trim() || undefined,
-        }),
+        body: JSON.stringify(payload),
       });
       const json = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) {
+        window.alert(json.error ?? "Save failed");
         throw new Error(json.error ?? "Save failed");
       }
+      window.alert("WhatsApp connection saved successfully.");
       toast.success("WhatsApp credentials saved");
       setStep(2);
       setAccessToken("");
@@ -157,7 +188,7 @@ export function SettingsShell() {
             with your verify token from{" "}
             <code className="rounded bg-slate-100 px-1 py-0.5 text-xs">WHATSAPP_VERIFY_TOKEN</code>.
           </p>
-          <form onSubmit={saveWhatsapp} className="mt-6 space-y-4">
+          <form className="mt-6 space-y-4">
             <div>
               <label className="mb-1 block text-xs font-medium text-slate-600">Access token</label>
               <input
@@ -189,8 +220,9 @@ export function SettingsShell() {
               />
             </div>
             <button
-              type="submit"
-              disabled={savingWa || !accessToken.trim() || !phoneNumberId.trim()}
+              type="button"
+              onClick={() => void handleSave()}
+              disabled={savingWa || !accessToken.trim() || !phoneNumberId.trim() || !user}
               className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:scale-[1.02] hover:bg-emerald-700 disabled:opacity-50"
             >
               {savingWa ? "Saving…" : "Save connection"}
