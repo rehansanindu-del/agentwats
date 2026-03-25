@@ -1,4 +1,4 @@
-import { createServerClient } from "@supabase/ssr";
+import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 export async function updateSession(request: NextRequest) {
@@ -17,23 +17,17 @@ export async function updateSession(request: NextRequest) {
       getAll() {
         return request.cookies.getAll();
       },
-      setAll(cookiesToSet: any) {
-  cookiesToSet.forEach((cookie: any) => {
-    request.cookies.set(cookie.name, cookie.value);
-  });
-
-  supabaseResponse = NextResponse.next({
-    request,
-  });
-
-  cookiesToSet.forEach((cookie: any) => {
-    supabaseResponse.cookies.set(
-      cookie.name,
-      cookie.value,
-      cookie.options
-    );
-  });
-},
+      setAll(cookiesToSet: { name: string; value: string; options: CookieOptions }[]) {
+        cookiesToSet.forEach(({ name, value }) => {
+          request.cookies.set(name, value);
+        });
+        supabaseResponse = NextResponse.next({
+          request,
+        });
+        cookiesToSet.forEach(({ name, value, options }) => {
+          supabaseResponse.cookies.set(name, value, options);
+        });
+      },
     },
   });
 
@@ -50,9 +44,9 @@ export async function updateSession(request: NextRequest) {
     path.startsWith("/settings");
 
   const redirect = (pathname: string) => {
-    const u = request.nextUrl.clone();
-    u.pathname = pathname;
-    const res = NextResponse.redirect(u);
+    const next = request.nextUrl.clone();
+    next.pathname = pathname;
+    const res = NextResponse.redirect(next);
     supabaseResponse.cookies.getAll().forEach(({ name, value }) => {
       res.cookies.set(name, value);
     });
