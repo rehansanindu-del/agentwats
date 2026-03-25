@@ -9,6 +9,11 @@ export async function updateSession(request: NextRequest) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !key) {
+    // Edge middleware has no Supabase env → cannot refresh session; still route `/` away
+    // from the old static "Redirecting…" page so users never get stuck.
+    if (request.nextUrl.pathname === "/") {
+      return NextResponse.redirect(new URL("/login", request.url));
+    }
     return supabaseResponse;
   }
 
