@@ -15,12 +15,11 @@ export async function createClient() {
       getAll() {
         return cookieStore.getAll();
       },
-      setAll(cookiesToSet) {
-        try {
-          cookiesToSet.forEach(({ name, value, options }) =>
-            cookieStore.set(name, value, options)
-          );
-        } catch {
+      setAll(cookiesToSet: any) {
+  cookiesToSet.forEach((cookie: any) => {
+    cookieStore.set(cookie.name, cookie.value, cookie.options);
+  });
+} catch {
           // Server Component — ignore if read-only
         }
       },
