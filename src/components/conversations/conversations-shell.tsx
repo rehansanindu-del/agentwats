@@ -5,6 +5,8 @@ import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import type { Contact, Message } from "@/lib/types/database";
 
+const POLL_MS = 8000;
+
 export function ConversationsShell() {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -15,6 +17,12 @@ export function ConversationsShell() {
   const [sending, setSending] = useState(false);
   const [draft, setDraft] = useState("");
   const bottomRef = useRef<HTMLDivElement | null>(null);
+  /** Ref avoids stale closures in Realtime handlers */
+  const selectedIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    selectedIdRef.current = selectedId;
+  }, [selectedId]);
 
   const selected = useMemo(
     () => contacts.find((c) => c.id === selectedId) ?? null,
@@ -24,7 +32,7 @@ export function ConversationsShell() {
   const loadContacts = useCallback(async () => {
     setLoadingList(true);
     try {
-      const res = await fetch("/api/contacts");
+      const res = await fetch("/api/contacts", { cache: "no-store" });
       if (!res.ok) {
         throw new Error("Failed to load contacts");
       }
@@ -40,7 +48,9 @@ export function ConversationsShell() {
   const loadMessages = useCallback(async (contactId: string) => {
     setLoadingMsgs(true);
     try {
-      const res = await fetch(`/api/messages?contactId=${encodeURIComponent(contactId)}`);
+      const res = await fetch(`/api/messages?contactId=${encodeURIComponent(contactId)}`, {
+        cache: "no-store",
+      });
       if (!res.ok) {
         throw new Error("Failed to load messages");
       }
@@ -69,10 +79,19 @@ export function ConversationsShell() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, selectedId]);
 
+  /** Realtime + polling so inbox updates even if Supabase Realtime is misconfigured */
   useEffect(() => {
     const supabase = createClient();
     let cancelled = false;
-    let ch: ReturnType<typeof supabase.channel> | null = null;
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+
+    const refreshVisible = () => {
+      void loadContacts();
+      const sid = selectedIdRef.current;
+      if (sid) {
+        void loadMessages(sid);
+      }
+    };
 
     void (async () => {
       const {
@@ -81,8 +100,32 @@ export function ConversationsShell() {
       if (!user || cancelled) {
         return;
       }
-      ch = supabase
-        .channel(`contacts-${user.id}`)
+
+      channel = supabase
+        .channel(`inbox-${user.id}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "messages",
+            filter: `user_id=eq.${user.id}`,
+          },
+          (payload) => {
+            const row = payload.new as Message;
+            void loadContacts();
+            if (row.contact_id === selectedIdRef.current) {
+              setMessages((prev) => {
+                if (prev.some((m) => m.id === row.id)) {
+                  return prev;
+                }
+                return [...prev, row].sort(
+                  (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+                );
+              });
+            }
+          }
+        )
         .on(
           "postgres_changes",
           {
@@ -93,52 +136,42 @@ export function ConversationsShell() {
           },
           () => {
             void loadContacts();
+            const sid = selectedIdRef.current;
+            if (sid) {
+              void loadMessages(sid);
+            }
           }
         )
-        .subscribe();
+        .subscribe((status, err) => {
+          if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+            console.warn("Supabase Realtime:", status, err);
+          }
+        });
     })();
+
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") {
+        refreshVisible();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+
+    const poll = window.setInterval(() => {
+      if (document.visibilityState !== "visible") {
+        return;
+      }
+      refreshVisible();
+    }, POLL_MS);
 
     return () => {
       cancelled = true;
-      if (ch) {
-        void supabase.removeChannel(ch);
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.clearInterval(poll);
+      if (channel) {
+        void supabase.removeChannel(channel);
       }
     };
-  }, [loadContacts]);
-
-  useEffect(() => {
-    if (!selectedId) {
-      return;
-    }
-    const supabase = createClient();
-    const ch = supabase
-      .channel(`messages-${selectedId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "messages",
-          filter: `contact_id=eq.${selectedId}`,
-        },
-        (payload) => {
-          const row = payload.new as Message;
-          setMessages((prev) => {
-            if (prev.some((m) => m.id === row.id)) {
-              return prev;
-            }
-            return [...prev, row].sort(
-              (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-            );
-          });
-        }
-      )
-      .subscribe();
-
-    return () => {
-      void supabase.removeChannel(ch);
-    };
-  }, [selectedId]);
+  }, [loadContacts, loadMessages]);
 
   async function send() {
     if (!selectedId || !draft.trim()) {
@@ -183,7 +216,9 @@ export function ConversationsShell() {
     <div className="flex min-h-screen flex-1 flex-col">
       <header className="border-b border-slate-200 bg-white px-8 py-6">
         <h1 className="text-2xl font-semibold text-slate-900">Conversations</h1>
-        <p className="mt-1 text-sm text-slate-500">WhatsApp-style inbox with realtime updates.</p>
+        <p className="mt-1 text-sm text-slate-500">
+          Inbox syncs via Supabase Realtime; also refreshes every few seconds as a fallback.
+        </p>
       </header>
       <div className="flex min-h-0 flex-1 overflow-hidden">
         <div className="flex w-full max-w-sm flex-col border-r border-slate-200 bg-white">

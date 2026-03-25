@@ -12,6 +12,7 @@ export function LeadsShell() {
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [tag, setTag] = useState<ContactTag | "all">("all");
+  const [selected, setSelected] = useState<Contact | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -88,12 +89,12 @@ export function LeadsShell() {
   }
 
   return (
-    <div className="p-8">
+    <div className="p-6 md:p-8">
       <div className="mx-auto max-w-6xl space-y-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h1 className="text-2xl font-semibold text-slate-900">Leads</h1>
-            <p className="mt-1 text-sm text-slate-500">Search, filter, and export your contacts.</p>
+            <h1 className="text-3xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">Leads CRM</h1>
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Search, filter, segment and export your pipeline.</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <button
@@ -126,7 +127,7 @@ export function LeadsShell() {
                 key={t}
                 type="button"
                 onClick={() => setTag(t)}
-                className={`rounded-full px-3 py-1 text-xs font-semibold uppercase ${
+                className={`rounded-full px-3 py-1 text-xs font-semibold uppercase transition ${
                   tag === t
                     ? "bg-emerald-600 text-white"
                     : "bg-slate-100 text-slate-600 hover:bg-slate-200"
@@ -138,34 +139,35 @@ export function LeadsShell() {
           </div>
         </div>
 
-        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div className="overflow-hidden rounded-2xl border border-slate-200/70 bg-white shadow-soft dark:border-slate-800 dark:bg-slate-900">
           <table className="w-full text-left text-sm">
-            <thead className="border-b border-slate-100 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+            <thead className="border-b border-slate-100 bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-400">
               <tr>
                 <th className="px-4 py-3">Name</th>
                 <th className="px-4 py-3">Phone</th>
                 <th className="px-4 py-3">Tag</th>
                 <th className="px-4 py-3">Last message</th>
+                <th className="px-4 py-3">Last active</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={4} className="px-4 py-6 text-slate-500">
+                  <td colSpan={5} className="px-4 py-6 text-slate-500 dark:text-slate-400">
                     Loading…
                   </td>
                 </tr>
               ) : rows.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="px-4 py-6 text-slate-500">
+                  <td colSpan={5} className="px-4 py-6 text-slate-500 dark:text-slate-400">
                     No leads found.
                   </td>
                 </tr>
               ) : (
                 rows.map((c) => (
-                  <tr key={c.id} className="border-b border-slate-50 last:border-0">
-                    <td className="px-4 py-3 font-medium text-slate-900">{c.name ?? "—"}</td>
-                    <td className="px-4 py-3 text-slate-700">{c.phone}</td>
+                  <tr key={c.id} onClick={() => setSelected(c)} className="cursor-pointer border-b border-slate-50 transition hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800/40 last:border-0">
+                    <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-100">{c.name ?? "—"}</td>
+                    <td className="px-4 py-3 text-slate-700 dark:text-slate-300">{c.phone}</td>
                     <td className="px-4 py-3">
                       <span
                         className={`rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase ${
@@ -173,19 +175,27 @@ export function LeadsShell() {
                             ? "bg-rose-100 text-rose-800"
                             : c.tag === "warm"
                               ? "bg-amber-100 text-amber-800"
-                              : "bg-slate-100 text-slate-600"
+                              : "bg-blue-100 text-blue-800"
                         }`}
                       >
                         {c.tag}
                       </span>
                     </td>
-                    <td className="max-w-md truncate px-4 py-3 text-slate-600">{c.last_message ?? "—"}</td>
+                    <td className="max-w-md truncate px-4 py-3 text-slate-600 dark:text-slate-400">{c.last_message ?? "—"}</td>
+                    <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{new Date(c.created_at).toLocaleString()}</td>
                   </tr>
                 ))
               )}
             </tbody>
           </table>
         </div>
+        {selected ? (
+          <div className="card-premium p-4">
+            <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">Lead details</div>
+            <div className="mt-2 text-sm text-slate-600 dark:text-slate-400">{selected.name ?? "Unnamed"} • {selected.phone}</div>
+            <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">{selected.last_message ?? "No messages yet"}</div>
+          </div>
+        ) : null}
       </div>
     </div>
   );

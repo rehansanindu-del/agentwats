@@ -18,6 +18,8 @@ export function SettingsShell() {
   const [aiOn, setAiOn] = useState(true);
   const [loadingBot, setLoadingBot] = useState(true);
   const [savingBot, setSavingBot] = useState(false);
+  const [testPhone, setTestPhone] = useState("");
+  const [testing, setTesting] = useState(false);
 
   const loadBot = useCallback(async () => {
     setLoadingBot(true);
@@ -91,17 +93,52 @@ export function SettingsShell() {
     }
   }
 
+  async function testConnection() {
+    setTesting(true);
+    try {
+      const res = await fetch("/api/health");
+      if (!res.ok) throw new Error("API not reachable");
+      toast.success("API is reachable. Connection baseline passed.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Test failed");
+    } finally {
+      setTesting(false);
+    }
+  }
+
+  async function sendTestMessage() {
+    if (!testPhone.trim()) {
+      toast.error("Enter a test phone number");
+      return;
+    }
+    setTesting(true);
+    try {
+      const res = await fetch("/api/whatsapp/test-message", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ to: testPhone.trim(), text: "AgentWats test message ✅" }),
+      });
+      const json = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) throw new Error(json.error ?? "Test message failed");
+      toast.success("Test message sent successfully");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Test failed");
+    } finally {
+      setTesting(false);
+    }
+  }
+
   return (
-    <div className="p-8">
+    <div className="p-6 md:p-8">
       <div className="mx-auto max-w-3xl space-y-10">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-900">Settings</h1>
-          <p className="mt-1 text-sm text-slate-500">Connect WhatsApp and tune your AI assistant.</p>
+          <h1 className="text-3xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">Settings</h1>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Manage WhatsApp Cloud API and AI assistant behavior.</p>
         </div>
 
-        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h2 className="text-lg font-semibold text-slate-900">WhatsApp Cloud API</h2>
-          <p className="mt-1 text-sm text-slate-500">
+        <section className="card-premium p-6">
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">🔗 WhatsApp Cloud API</h2>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
             Paste a long-lived access token and your Phone number ID from Meta Business. Configure the
             webhook URL to{" "}
             <code className="rounded bg-slate-100 px-1 py-0.5 text-xs">
@@ -144,18 +181,27 @@ export function SettingsShell() {
             <button
               type="submit"
               disabled={savingWa || !accessToken.trim() || !phoneNumberId.trim()}
-              className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+              className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:scale-[1.02] hover:bg-emerald-700 disabled:opacity-50"
             >
               {savingWa ? "Saving…" : "Save connection"}
             </button>
+            <button type="button" onClick={() => void testConnection()} className="ml-2 rounded-xl border border-slate-200 px-4 py-2 text-sm hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800">
+              {testing ? "Testing..." : "Test connection"}
+            </button>
           </form>
+          <div className="mt-4 flex gap-2">
+            <input value={testPhone} onChange={(e) => setTestPhone(e.target.value)} placeholder="Recipient phone for test" className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900" />
+            <button type="button" onClick={() => void sendTestMessage()} className="rounded-xl bg-slate-900 px-4 py-2 text-sm text-white dark:bg-slate-700">
+              Send test message
+            </button>
+          </div>
         </section>
 
-        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <section className="card-premium p-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <h2 className="text-lg font-semibold text-slate-900">AI assistant</h2>
-              <p className="mt-1 text-sm text-slate-500">
+              <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">🤖 AI assistant</h2>
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
                 When AI is on, inbound WhatsApp messages receive an automatic reply. Sending a manual
                 message from Conversations turns AI off until you enable it again.
               </p>

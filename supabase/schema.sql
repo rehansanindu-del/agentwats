@@ -59,8 +59,13 @@ create table if not exists public.messages (
   contact_id uuid not null references public.contacts (id) on delete cascade,
   content text not null,
   direction public.message_direction not null,
+  wa_message_id text,
   created_at timestamptz not null default now()
 );
+
+create unique index if not exists messages_wa_message_id_unique
+  on public.messages (wa_message_id)
+  where wa_message_id is not null;
 
 create index if not exists idx_messages_contact_created on public.messages (contact_id, created_at desc);
 create index if not exists idx_messages_user on public.messages (user_id);

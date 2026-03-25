@@ -4,7 +4,10 @@ import { processIncomingWhatsappMessage } from "@/lib/incoming-message";
 
 export const dynamic = "force-dynamic";
 
-/** ✅ Webhook verification (GET) */
+/** Vercel Pro / Fluid: extend if AI + WhatsApp are slow */
+export const maxDuration = 60;
+
+/** Webhook verification (GET) */
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
 
@@ -15,10 +18,7 @@ export async function GET(request: Request) {
   const verify = process.env.WHATSAPP_VERIFY_TOKEN;
 
   if (!verify) {
-    return NextResponse.json(
-      { error: "WHATSAPP_VERIFY_TOKEN not set" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "WHATSAPP_VERIFY_TOKEN not set" }, { status: 500 });
   }
 
   if (mode === "subscribe" && token === verify && challenge) {
@@ -28,29 +28,65 @@ export async function GET(request: Request) {
   return NextResponse.json({ error: "Verification failed" }, { status: 403 });
 }
 
-/** ✅ Incoming WhatsApp messages (POST) */
+interface WaMessage {
+  id?: string;
+  from?: string;
+  type?: string;
+  text?: { body?: string };
+}
+
+interface WaChangeValue {
+  metadata?: { phone_number_id?: string };
+  messages?: WaMessage[];
+}
+
+/** Incoming WhatsApp events (POST) */
 export async function POST(request: Request) {
+  let body: unknown;
   try {
-    const body = await request.json();
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  }
+
+  const b = body as {
+    object?: string;
+    entry?: Array<{
+      changes?: Array<{ value?: WaChangeValue }>;
+    }>;
+  };
+
+  if (b.object && b.object !== "whatsapp_business_account") {
+    return NextResponse.json({ received: true }, { status: 200 });
+  }
+
+  try {
     const supabase = createServiceRoleClient();
 
-    for (const entry of body.entry ?? []) {
+    for (const entry of b.entry ?? []) {
       for (const change of entry.changes ?? []) {
         const value = change.value;
         const phoneNumberId = value?.metadata?.phone_number_id;
 
-        if (!phoneNumberId) continue;
+        if (!phoneNumberId) {
+          continue;
+        }
 
         for (const msg of value?.messages ?? []) {
-          if (msg.type !== "text" || !msg.text?.body) continue;
+          if (msg.type !== "text" || !msg.text?.body) {
+            continue;
+          }
 
           const from = msg.from;
-          if (!from) continue;
+          if (!from) {
+            continue;
+          }
 
           const result = await processIncomingWhatsappMessage(supabase, {
             phoneNumberId,
             from,
             body: msg.text.body,
+            whatsappMessageId: msg.id,
           });
 
           if (!result.ok) {
@@ -63,6 +99,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ received: true }, { status: 200 });
   } catch (e) {
     console.error("webhook POST error", e);
-    return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
+    return NextResponse.json({ error: "Processing failed" }, { status: 500 });
   }
 }
