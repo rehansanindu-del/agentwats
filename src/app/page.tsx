@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { FeatureCard } from "@/components/ui/feature-card";
 
 export default function HomePage() {
   return (
@@ -116,11 +117,7 @@ export default function HomePage() {
             { icon: "📊", title: "Dashboard Analytics", text: "Track conversations and growth." },
             { icon: "👥", title: "Lead Management", text: "Organize and export high-intent leads." },
           ].map((f) => (
-            <div key={f.title} className="card-premium p-5 transition-transform duration-200 hover:-translate-y-1">
-              <div className="text-2xl">{f.icon}</div>
-              <h3 className="mt-3 text-lg font-semibold">{f.title}</h3>
-              <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{f.text}</p>
-            </div>
+            <FeatureCard key={f.title} icon={f.icon} title={f.title} description={f.text} />
           ))}
         </div>
       </section>
@@ -178,6 +175,22 @@ export default function HomePage() {
           <Link href="/signup" className="mt-6 inline-flex rounded-xl bg-white px-6 py-3 font-semibold text-emerald-700 transition hover:scale-[1.02] hover:bg-emerald-50">
             Start Free Now
           </Link>
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-5xl px-6 pb-20">
+        <h2 className="text-center text-3xl font-bold tracking-tight">Frequently asked questions</h2>
+        <div className="mt-8 space-y-3">
+          {[
+            ["How fast can I launch?", "Most businesses connect WhatsApp, run a test, and go live in under 5 minutes."],
+            ["Can I still reply manually?", "Yes. Your team can jump into any conversation instantly and take over anytime."],
+            ["Will this work for small teams?", "Absolutely. AgentWats is built for founders and lean teams that need speed."],
+          ].map(([q, a]) => (
+            <div key={q} className="card-premium p-4">
+              <p className="font-semibold text-slate-900 dark:text-slate-100">{q}</p>
+              <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{a}</p>
+            </div>
+          ))}
         </div>
       </section>
     </div>

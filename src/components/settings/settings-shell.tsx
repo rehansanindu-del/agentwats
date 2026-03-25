@@ -20,6 +20,7 @@ export function SettingsShell() {
   const [savingBot, setSavingBot] = useState(false);
   const [testPhone, setTestPhone] = useState("");
   const [testing, setTesting] = useState(false);
+  const [step, setStep] = useState(1);
 
   const loadBot = useCallback(async () => {
     setLoadingBot(true);
@@ -61,6 +62,7 @@ export function SettingsShell() {
         throw new Error(json.error ?? "Save failed");
       }
       toast.success("WhatsApp credentials saved");
+      setStep(2);
       setAccessToken("");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Error");
@@ -86,6 +88,9 @@ export function SettingsShell() {
         throw new Error(json.error ?? "Save failed");
       }
       toast.success("AI settings saved");
+      if (aiOn) {
+        setStep(3);
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Error");
     } finally {
@@ -99,6 +104,7 @@ export function SettingsShell() {
       const res = await fetch("/api/health");
       if (!res.ok) throw new Error("API not reachable");
       toast.success("API is reachable. Connection baseline passed.");
+      setStep(3);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Test failed");
     } finally {
@@ -134,10 +140,14 @@ export function SettingsShell() {
         <div>
           <h1 className="text-3xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">Settings</h1>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Manage WhatsApp Cloud API and AI assistant behavior.</p>
+          <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+            <div className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 transition-all" style={{ width: `${(step / 3) * 100}%` }} />
+          </div>
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Setup progress: step {step} of 3</p>
         </div>
 
         <section className="card-premium p-6">
-          <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">🔗 WhatsApp Cloud API</h2>
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">1. Connect WhatsApp Cloud API</h2>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
             Paste a long-lived access token and your Phone number ID from Meta Business. Configure the
             webhook URL to{" "}
@@ -198,9 +208,10 @@ export function SettingsShell() {
         </section>
 
         <section className="card-premium p-6">
+          <h3 className="mb-2 text-lg font-semibold text-slate-900 dark:text-slate-100">2. Test connection and enable AI</h3>
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">🤖 AI assistant</h2>
+              <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">AI assistant</h2>
               <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
                 When AI is on, inbound WhatsApp messages receive an automatic reply. Sending a manual
                 message from Conversations turns AI off until you enable it again.
@@ -247,6 +258,11 @@ export function SettingsShell() {
               </button>
             </form>
           )}
+          {step >= 3 ? (
+            <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 dark:border-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-300">
+              Your onboarding is complete. AI automation is ready.
+            </div>
+          ) : null}
         </section>
       </div>
     </div>
