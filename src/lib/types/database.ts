@@ -35,7 +35,7 @@ export interface Message {
   direction: MessageDirection;
   created_at: string;
   /** WhatsApp Cloud API message id (incoming); used for webhook idempotency */
-  wa_message_id?: string | null;
+  message_id?: string | null;
 }
 
 export interface Bot {

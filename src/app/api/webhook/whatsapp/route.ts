@@ -82,11 +82,22 @@ export async function POST(request: Request) {
             continue;
           }
 
+          if (!msg.id) {
+            console.error("Incoming WhatsApp message missing msg.id", { from, text: msg.text?.body });
+            continue;
+          }
+
+          console.log("Incoming message:", {
+            from,
+            messageId: msg.id,
+            text: msg.text?.body,
+          });
+
           const result = await processIncomingWhatsappMessage(supabase, {
             phoneNumberId,
             from,
             body: msg.text.body,
-            whatsappMessageId: msg.id,
+            messageId: msg.id,
           });
 
           if (!result.ok) {

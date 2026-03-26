@@ -8,19 +8,19 @@ interface IncomingTextPayload {
   phoneNumberId: string;
   from: string;
   body: string;
-  /** WhatsApp Cloud API message id — prevents duplicate processing on webhook retries */
-  whatsappMessageId?: string;
+  /** WhatsApp Cloud API message id (msg.id) — prevents duplicate processing on retries */
+  messageId?: string;
 }
 
 export async function processIncomingWhatsappMessage(
   supabase: Sb,
   payload: IncomingTextPayload
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-  if (payload.whatsappMessageId) {
+  if (payload.messageId) {
     const { data: dup } = await supabase
       .from("messages")
       .select("id")
-      .eq("wa_message_id", payload.whatsappMessageId)
+      .eq("message_id", payload.messageId)
       .maybeSingle();
     if (dup) {
       return { ok: true };
@@ -73,7 +73,7 @@ export async function processIncomingWhatsappMessage(
     contact_id: contactId,
     content: payload.body,
     direction: "incoming",
-    ...(payload.whatsappMessageId ? { wa_message_id: payload.whatsappMessageId } : {}),
+    ...(payload.messageId ? { message_id: payload.messageId } : {}),
   });
   if (inErr) {
     if (inErr.code === "23505" || inErr.message.includes("duplicate")) {
