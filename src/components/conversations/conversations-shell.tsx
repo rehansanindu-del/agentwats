@@ -210,16 +210,16 @@ export function ConversationsShell() {
   const quickReplies = useMemo(() => ["Can I get your name?", "Would you like pricing?", "Can I help you book now?"], []);
 
   return (
-    <div className="flex min-h-screen flex-1 flex-col">
-      <header className="border-b border-slate-200 bg-white/80 px-8 py-6 backdrop-blur dark:border-slate-800 dark:bg-slate-950/70">
+    <div className="flex h-screen min-h-0 flex-col overflow-hidden">
+      <header className="shrink-0 border-b border-slate-200 bg-white/80 px-8 py-6 backdrop-blur dark:border-slate-800 dark:bg-slate-950/70">
         <h1 className="text-3xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">Conversations</h1>
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
           Inbox syncs live through Supabase Realtime.
         </p>
       </header>
       <div className="flex min-h-0 flex-1 overflow-hidden">
-        <div className="flex w-full max-w-sm flex-col border-r border-slate-200 bg-white/80 backdrop-blur dark:border-slate-800 dark:bg-slate-950/70">
-          <div className="border-b border-slate-100 p-3 dark:border-slate-800">
+        <div className="flex min-h-0 w-full max-w-sm shrink-0 flex-col border-r border-slate-200 bg-white/80 backdrop-blur dark:border-slate-800 dark:bg-slate-950/70">
+          <div className="shrink-0 border-b border-slate-100 p-3 dark:border-slate-800">
             <input
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
@@ -227,7 +227,7 @@ export function ConversationsShell() {
               className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none ring-emerald-500/20 focus:ring-2 dark:border-slate-700 dark:bg-slate-900"
             />
           </div>
-          <div className="scrollbar-thin flex-1 overflow-y-auto">
+          <div className="scrollbar-thin min-h-0 flex-1 overflow-y-auto">
             {loadingList ? (
               <div className="space-y-2 p-4">
                 <Skeleton className="h-16 w-full" />
@@ -261,7 +261,7 @@ export function ConversationsShell() {
             )}
           </div>
         </div>
-        <div className="flex min-w-0 flex-1 flex-col bg-[#efeae2] dark:bg-slate-900">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[#efeae2] dark:bg-slate-900">
           {!selected ? (
             <div className="flex flex-1 items-center justify-center text-sm text-slate-600 dark:text-slate-300">
               <div className="text-center">
@@ -271,7 +271,8 @@ export function ConversationsShell() {
             </div>
           ) : (
             <>
-              <div className="flex items-center gap-3 border-b border-black/5 bg-[#f0f2f5] px-4 py-3 dark:bg-slate-950">
+              <div className="shrink-0 border-b border-black/5 bg-[#f0f2f5] px-4 py-3 dark:bg-slate-950">
+                <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-300 text-sm font-semibold text-slate-800">
                   {(selected.name ?? selected.phone).slice(0, 2).toUpperCase()}
                 </div>
@@ -287,8 +288,9 @@ export function ConversationsShell() {
                     {manualMode ? "Manual mode" : "Take over manually"}
                   </button>
                 </div>
+                </div>
               </div>
-              <div className="scrollbar-thin flex-1 overflow-y-auto px-4 py-4">
+              <div className="scrollbar-thin min-h-0 flex-1 overflow-y-auto px-4 py-4">
                 {loadingMsgs ? (
                   <div className="space-y-2">
                     <Skeleton className="h-12 w-2/3" />
@@ -321,7 +323,7 @@ export function ConversationsShell() {
                   </div>
                 )}
               </div>
-              <div className="border-t border-black/5 bg-[#f0f2f5] p-3 dark:bg-slate-950">
+              <div className="shrink-0 border-t border-black/5 bg-[#f0f2f5] p-3 dark:bg-slate-950">
                 <div className="mx-auto max-w-3xl space-y-2">
                   <div className="flex flex-wrap gap-2">
                     {quickReplies.map((q) => (
@@ -331,30 +333,30 @@ export function ConversationsShell() {
                     ))}
                   </div>
                   <div className="flex gap-2">
-                  <textarea
-                    value={draft}
-                    onChange={(e) => setDraft(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && !e.shiftKey) {
-                        e.preventDefault();
+                    <textarea
+                      value={draft}
+                      onChange={(e) => setDraft(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !e.shiftKey) {
+                          e.preventDefault();
+                          void send();
+                        }
+                      }}
+                      rows={2}
+                      placeholder="Type a message…"
+                      className="min-h-[44px] flex-1 resize-none rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none ring-emerald-500/20 focus:ring-2 dark:border-slate-700 dark:bg-slate-900"
+                    />
+                    <button
+                      type="button"
+                      disabled={sending || !draft.trim()}
+                      onClick={() => {
                         void send();
-                      }
-                    }}
-                    rows={2}
-                    placeholder="Type a message…"
-                    className="min-h-[44px] flex-1 resize-none rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none ring-emerald-500/20 focus:ring-2 dark:border-slate-700 dark:bg-slate-900"
-                  />
-                  <button
-                    type="button"
-                    disabled={sending || !draft.trim()}
-                    onClick={() => {
-                      void send();
-                    }}
-                    className="self-end rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-4 py-2 text-sm font-medium text-white hover:scale-[1.02] disabled:opacity-50"
-                  >
-                    {sending ? "…" : "Send"}
-                  </button>
-                </div>
+                      }}
+                      className="shrink-0 self-end rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-4 py-2 text-sm font-medium text-white hover:scale-[1.02] disabled:opacity-50"
+                    >
+                      {sending ? "…" : "Send"}
+                    </button>
+                  </div>
                 </div>
               </div>
             </>
