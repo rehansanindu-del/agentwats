@@ -13,6 +13,68 @@ export default function SignupPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
+  async function initializeTrialForUser(
+    supabase: ReturnType<typeof createClient>,
+    userId: string
+  ): Promise<void> {
+    const now = new Date();
+    const trialStart = now.toISOString();
+    const trialEnd = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
+    try {
+      const { data: existing, error: existingErr } = await supabase
+        .from("users")
+        .select("id, trial_start, trial_end, is_pro")
+        .eq("id", userId)
+        .maybeSingle();
+
+      if (existingErr) {
+        console.error("trial-check-failed", existingErr);
+        return;
+      }
+
+      if (existing) {
+        // Keep signup resilient; only backfill trial fields if missing.
+        const patch: {
+          trial_start?: string;
+          trial_end?: string;
+          is_pro?: boolean;
+        } = {};
+
+        if (!("trial_start" in existing) || !existing.trial_start) {
+          patch.trial_start = trialStart;
+        }
+        if (!("trial_end" in existing) || !existing.trial_end) {
+          patch.trial_end = trialEnd;
+        }
+        if (!("is_pro" in existing)) {
+          patch.is_pro = false;
+        }
+
+        if (Object.keys(patch).length > 0) {
+          const { error: updateErr } = await supabase.from("users").update(patch).eq("id", userId);
+          if (updateErr) {
+            console.error("trial-backfill-failed", updateErr);
+          }
+        }
+        return;
+      }
+
+      const { error: insertErr } = await supabase.from("users").insert({
+        id: userId,
+        trial_start: trialStart,
+        trial_end: trialEnd,
+        is_pro: false,
+      });
+
+      if (insertErr) {
+        console.error("trial-insert-failed", insertErr);
+      }
+    } catch (err) {
+      console.error("trial-init-unexpected-error", err);
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (loading) {
@@ -48,6 +110,10 @@ export default function SignupPage() {
       if (error) {
         toast.error(error.message);
         return;
+      }
+
+      if (data.user && data.session) {
+        await initializeTrialForUser(supabase, data.user.id);
       }
 
       // Email confirmation off: Supabase returns a session immediately
