@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireUser } from "@/lib/api-auth";
 import { createClient } from "@/lib/supabase/server";
+import { isTrialActive } from "@/lib/trial";
 import { generateAssistantReply } from "@/lib/openai";
 import { sendWhatsappTextMessage } from "@/lib/whatsapp";
 
@@ -33,6 +34,21 @@ export async function POST(request: Request) {
 
   const supabase = await createClient();
   const { contactId } = parsed.data;
+
+  const { data: appUser, error: uErr } = await supabase
+    .from("users")
+    .select("id, is_pro, trial_end")
+    .eq("id", auth.user.id)
+    .maybeSingle();
+
+  if (uErr || !appUser) {
+    return NextResponse.json({ error: "User not found" }, { status: 404 });
+  }
+
+  if (!isTrialActive(appUser)) {
+    console.log("Trial expired:", appUser.id);
+    return NextResponse.json({ error: "Trial expired. Please upgrade." }, { status: 403 });
+  }
 
   const { data: contact, error: cErr } = await supabase
     .from("contacts")

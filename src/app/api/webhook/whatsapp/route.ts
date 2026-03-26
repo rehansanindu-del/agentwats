@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { processIncomingWhatsappMessage } from "@/lib/incoming-message";
+import { isTrialActive } from "@/lib/trial";
 
 export const dynamic = "force-dynamic";
 
@@ -62,6 +63,7 @@ export async function POST(request: Request) {
 
   try {
     const supabase = createServiceRoleClient();
+    const trialCache = new Map<string, boolean>();
 
     for (const entry of b.entry ?? []) {
       for (const change of entry.changes ?? []) {
@@ -69,6 +71,42 @@ export async function POST(request: Request) {
         const phoneNumberId = value?.metadata?.phone_number_id;
 
         if (!phoneNumberId) {
+          continue;
+        }
+
+        let trialAllowed = trialCache.get(phoneNumberId);
+        if (trialAllowed === undefined) {
+          const { data: waAccount, error: waErr } = await supabase
+            .from("whatsapp_accounts")
+            .select("user_id")
+            .eq("phone_number_id", phoneNumberId)
+            .maybeSingle();
+
+          if (waErr || !waAccount?.user_id) {
+            console.error("webhook trial user lookup failed", waErr?.message ?? "missing account");
+            continue;
+          }
+
+          const { data: appUser, error: uErr } = await supabase
+            .from("users")
+            .select("id, is_pro, trial_end")
+            .eq("id", waAccount.user_id)
+            .maybeSingle();
+
+          if (uErr || !appUser) {
+            console.error("webhook trial profile lookup failed", uErr?.message ?? "missing user");
+            continue;
+          }
+
+          trialAllowed = isTrialActive(appUser);
+          trialCache.set(phoneNumberId, trialAllowed);
+
+          if (!trialAllowed) {
+            console.log("Trial expired:", appUser.id);
+          }
+        }
+
+        if (!trialAllowed) {
           continue;
         }
 

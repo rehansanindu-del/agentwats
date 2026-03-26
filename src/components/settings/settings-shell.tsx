@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { SkeletonText } from "@/components/ui/skeleton";
+import { useTrial } from "@/hooks/useTrial";
 
 interface BotRow {
   prompt: string;
@@ -10,6 +11,7 @@ interface BotRow {
 }
 
 export function SettingsShell() {
+  const trial = useTrial();
   const [accessToken, setAccessToken] = useState("");
   const [phoneNumberId, setPhoneNumberId] = useState("");
   const [businessAccountId, setBusinessAccountId] = useState("");
@@ -308,10 +310,11 @@ export function SettingsShell() {
               <span className="text-sm font-medium text-slate-800">{aiOn ? "AI ON" : "AI OFF"}</span>
               <button
                 type="button"
+                disabled={!trial.loading && !trial.isActive}
                 onClick={() => setAiOn((v) => !v)}
                 className={`relative h-8 w-14 rounded-full transition ${
                   aiOn ? "bg-emerald-600" : "bg-slate-300"
-                }`}
+                } disabled:cursor-not-allowed disabled:opacity-50`}
                 aria-pressed={aiOn}
               >
                 <span

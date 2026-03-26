@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import type { Contact, Message } from "@/lib/types/database";
 import { Skeleton, SkeletonAvatar, SkeletonText } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { useTrial } from "@/hooks/useTrial";
 
 interface SendMessageResponse {
   ok: boolean;
@@ -27,6 +28,7 @@ export function ConversationsShell() {
   const [manualMode, setManualMode] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
+  const trial = useTrial();
 
   const selected = useMemo(
     () => contacts.find((c) => c.id === selectedId) ?? null,
@@ -143,6 +145,10 @@ export function ConversationsShell() {
   }, [messages]);
 
   async function send() {
+    if (!trial.loading && !trial.isActive) {
+      toast.error("Trial expired. Please upgrade.");
+      return;
+    }
     if (!selectedId || !draft.trim()) {
       return;
     }
@@ -357,7 +363,7 @@ export function ConversationsShell() {
                     />
                     <button
                       type="button"
-                      disabled={sending || !draft.trim()}
+                      disabled={sending || !draft.trim() || (!trial.loading && !trial.isActive)}
                       onClick={() => {
                         void send();
                       }}
