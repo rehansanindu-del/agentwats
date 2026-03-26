@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
+import { SkeletonText } from "@/components/ui/skeleton";
 
 interface BotRow {
   prompt: string;
@@ -185,7 +186,7 @@ export function SettingsShell() {
   }
 
   return (
-    <div className="p-6 md:p-8">
+    <div className="p-6 opacity-100 transition-opacity duration-300 md:p-8">
       <div className="mx-auto max-w-3xl space-y-10">
         <div>
           <h1 className="text-3xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">Settings</h1>
@@ -280,7 +281,7 @@ export function SettingsShell() {
             >
               {savingWa ? "Saving…" : "Save connection"}
             </button>
-            <button type="button" onClick={() => void testConnection()} className="ml-2 rounded-xl border border-slate-200 px-4 py-2 text-sm hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800">
+            <button type="button" onClick={() => void testConnection()} className="ml-2 rounded-xl border border-slate-200 px-4 py-2 text-sm transition-all duration-200 hover:scale-[1.02] hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800">
               {testing ? "Testing..." : "Test connection"}
             </button>
           </form>
@@ -323,7 +324,11 @@ export function SettingsShell() {
           </div>
 
           {loadingBot ? (
-            <div className="mt-6 text-sm text-slate-500">Loading…</div>
+            <div className="mt-6 space-y-3">
+              <SkeletonText className="h-4 w-40" />
+              <SkeletonText className="h-32 w-full rounded-lg" />
+              <SkeletonText className="h-10 w-36 rounded-lg" />
+            </div>
           ) : (
             <form onSubmit={saveBot} className="mt-6 space-y-4">
               <div>

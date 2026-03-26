@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
 import type { Contact, ContactTag } from "@/lib/types/database";
+import { SkeletonText } from "@/components/ui/skeleton";
 
 const tags: Array<ContactTag | "all"> = ["all", "hot", "warm", "cold"];
 
@@ -89,7 +90,7 @@ export function LeadsShell() {
   }
 
   return (
-    <div className="p-6 md:p-8">
+    <div className="p-6 opacity-100 transition-opacity duration-300 md:p-8">
       <div className="mx-auto max-w-6xl space-y-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
@@ -156,11 +157,15 @@ export function LeadsShell() {
             </thead>
             <tbody>
               {loading ? (
-                <tr>
-                  <td colSpan={5} className="px-4 py-6 text-slate-500 dark:text-slate-400">
-                    Loading…
-                  </td>
-                </tr>
+                Array.from({ length: 6 }).map((_, idx) => (
+                  <tr key={idx} className="border-b border-slate-50 dark:border-slate-800">
+                    <td className="px-4 py-3"><SkeletonText className="h-4 w-24" /></td>
+                    <td className="px-4 py-3"><SkeletonText className="h-4 w-36" /></td>
+                    <td className="px-4 py-3"><SkeletonText className="h-5 w-14 rounded-full" /></td>
+                    <td className="px-4 py-3"><SkeletonText className="h-4 w-full max-w-md" /></td>
+                    <td className="px-4 py-3"><SkeletonText className="h-4 w-40" /></td>
+                  </tr>
+                ))
               ) : rows.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="px-4 py-6 text-slate-500 dark:text-slate-400">

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import type { Contact, Message } from "@/lib/types/database";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Skeleton, SkeletonAvatar, SkeletonText } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 
 interface SendMessageResponse {
@@ -210,7 +210,7 @@ export function ConversationsShell() {
   const quickReplies = useMemo(() => ["Can I get your name?", "Would you like pricing?", "Can I help you book now?"], []);
 
   return (
-    <div className="flex h-screen min-h-0 flex-col overflow-hidden">
+    <div className="flex h-screen min-h-0 flex-col overflow-hidden opacity-100 transition-opacity duration-300">
       <header className="shrink-0 border-b border-slate-200 bg-white/80 px-8 py-6 backdrop-blur dark:border-slate-800 dark:bg-slate-950/70">
         <h1 className="text-3xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">Conversations</h1>
         <p className="mt-1 max-w-xl text-sm text-slate-500 dark:text-slate-400">
@@ -231,10 +231,16 @@ export function ConversationsShell() {
           </div>
           <div className="scrollbar-thin min-h-0 flex-1 overflow-y-auto">
             {loadingList ? (
-              <div className="space-y-2 p-4">
-                <Skeleton className="h-16 w-full" />
-                <Skeleton className="h-16 w-full" />
-                <Skeleton className="h-16 w-full" />
+              <div className="space-y-3 p-4">
+                {Array.from({ length: 8 }).map((_, idx) => (
+                  <div key={idx} className="flex items-center gap-3 rounded-xl border border-slate-100 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
+                    <SkeletonAvatar />
+                    <div className="flex-1 space-y-2">
+                      <SkeletonText className="h-3 w-2/3" />
+                      <SkeletonText className="h-3 w-1/2" />
+                    </div>
+                  </div>
+                ))}
               </div>
             ) : filtered.length === 0 ? (
               <div className="p-4 text-sm text-slate-500 dark:text-slate-400">No contacts yet.</div>
@@ -294,10 +300,11 @@ export function ConversationsShell() {
               </div>
               <div className="scrollbar-thin min-h-0 flex-1 overflow-y-auto px-4 py-4">
                 {loadingMsgs ? (
-                  <div className="space-y-2">
-                    <Skeleton className="h-12 w-2/3" />
-                    <Skeleton className="ml-auto h-12 w-2/3" />
-                    <Skeleton className="h-12 w-1/2" />
+                  <div className="space-y-3">
+                    <Skeleton className="h-12 w-2/3 rounded-2xl" />
+                    <Skeleton className="ml-auto h-12 w-2/3 rounded-2xl" />
+                    <Skeleton className="h-12 w-1/2 rounded-2xl" />
+                    <Skeleton className="ml-auto h-12 w-3/5 rounded-2xl" />
                   </div>
                 ) : (
                   <div className="mx-auto flex max-w-3xl flex-col gap-2">

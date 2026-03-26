@@ -26,7 +26,7 @@ export function DashboardShell({
 }) {
   const max = Math.max(...dailyCounts, 1);
   return (
-    <div className="p-6 md:p-8">
+    <div className="p-6 opacity-100 transition-opacity duration-300 md:p-8">
       <div className="mx-auto max-w-7xl space-y-8">
         <div className="mb-6 flex flex-col gap-2 md:mb-8 md:flex-row md:items-end md:justify-between">
           <div>
@@ -74,7 +74,7 @@ export function DashboardShell({
                 <p className="text-sm text-slate-500 dark:text-slate-400">No recent activity yet.</p>
               ) : (
                 recentMessages.map((m) => (
-                  <div key={m.id} className="rounded-xl border border-slate-200/70 bg-white/70 p-2 text-xs dark:border-slate-700 dark:bg-slate-900">
+                  <div key={m.id} className="rounded-xl border border-slate-200/70 bg-white/70 p-2 text-xs transition-all duration-200 hover:shadow-sm dark:border-slate-700 dark:bg-slate-900">
                     <div className="line-clamp-2 text-slate-700 dark:text-slate-200">{m.content}</div>
                     <div className="mt-1 flex items-center justify-between text-[10px] text-slate-500 dark:text-slate-400">
                       <span>{m.direction === "incoming" ? "Incoming" : "Outgoing"}</span>
