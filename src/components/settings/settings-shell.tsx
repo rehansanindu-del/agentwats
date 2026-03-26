@@ -1,9 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import type { User } from "@supabase/supabase-js";
 import { toast } from "sonner";
-import { createClient as createSupabaseClient } from "@/lib/supabase/client";
 
 interface BotRow {
   prompt: string;
@@ -11,11 +9,13 @@ interface BotRow {
 }
 
 export function SettingsShell() {
-  const supabase = createSupabaseClient();
   const [accessToken, setAccessToken] = useState("");
   const [phoneNumberId, setPhoneNumberId] = useState("");
   const [businessAccountId, setBusinessAccountId] = useState("");
-  const [user, setUser] = useState<User | null>(null);
+  const [maskedToken, setMaskedToken] = useState<string | null>(null);
+  const [editingToken, setEditingToken] = useState(false);
+  const [connected, setConnected] = useState(false);
+  const [loadingConnection, setLoadingConnection] = useState(true);
   const [savingWa, setSavingWa] = useState(false);
 
   const [prompt, setPrompt] = useState("");
@@ -48,53 +48,70 @@ export function SettingsShell() {
     void loadBot();
   }, [loadBot]);
 
+  const loadConnection = useCallback(async () => {
+    setLoadingConnection(true);
+    try {
+      const res = await fetch("/api/whatsapp/connect", { cache: "no-store" });
+      const json = (await res.json()) as {
+        connected?: boolean;
+        account?: {
+          phone_number_id?: string;
+          business_account_id?: string | null;
+          masked_access_token?: string | null;
+        } | null;
+        error?: string;
+      };
+      if (!res.ok) {
+        throw new Error(json.error ?? "Failed to load WhatsApp connection");
+      }
+
+      const account = json.account;
+      setConnected(Boolean(json.connected));
+      setPhoneNumberId(account?.phone_number_id ?? "");
+      setBusinessAccountId(account?.business_account_id ?? "");
+      setMaskedToken(account?.masked_access_token ?? null);
+      setEditingToken(!json.connected);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to load connection");
+    } finally {
+      setLoadingConnection(false);
+    }
+  }, []);
+
   useEffect(() => {
-    void (async () => {
-      const {
-        data: { user: authUser },
-      } = await supabase.auth.getUser();
-      setUser(authUser);
-    })();
-  }, [supabase]);
+    void loadConnection();
+  }, [loadConnection]);
 
   async function handleSave() {
     setSavingWa(true);
     try {
-      if (!user) {
-        window.alert("You must be logged in to save WhatsApp settings.");
-        toast.error("You must be logged in.");
+      const tokenToSend = editingToken ? accessToken.trim() : undefined;
+      if (editingToken && !tokenToSend) {
+        toast.error("Access token is required while editing.");
         return;
       }
-
-      const payload = {
-        userId: user.id,
-        phoneNumberId: phoneNumberId.trim(),
-        accessToken: accessToken.trim(),
-      };
-
-      if (!payload.phoneNumberId || !payload.accessToken) {
-        window.alert("Phone Number ID and Access Token are required.");
-        toast.error("Phone Number ID and Access Token are required.");
+      if (!phoneNumberId.trim()) {
+        toast.error("Phone Number ID is required.");
         return;
       }
-
-      // Temporary debug log for production verification
-      console.log(payload);
-
-      const res = await fetch("/api/save-whatsapp", {
+      const res = await fetch("/api/whatsapp/connect", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          access_token: tokenToSend,
+          phone_number_id: phoneNumberId.trim(),
+          business_account_id: businessAccountId.trim() || undefined,
+        }),
       });
       const json = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) {
-        window.alert(json.error ?? "Save failed");
         throw new Error(json.error ?? "Save failed");
       }
-      window.alert("WhatsApp connection saved successfully.");
       toast.success("WhatsApp credentials saved");
       setStep(2);
+      setConnected(true);
       setAccessToken("");
+      await loadConnection();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Error");
     } finally {
@@ -132,9 +149,11 @@ export function SettingsShell() {
   async function testConnection() {
     setTesting(true);
     try {
-      const res = await fetch("/api/health");
-      if (!res.ok) throw new Error("API not reachable");
-      toast.success("API is reachable. Connection baseline passed.");
+      const res = await fetch("/api/whatsapp/connect", { cache: "no-store" });
+      const json = (await res.json()) as { connected?: boolean; error?: string };
+      if (!res.ok) throw new Error(json.error ?? "Connection check failed");
+      if (!json.connected) throw new Error("WhatsApp is not connected yet");
+      toast.success("WhatsApp connection looks good.");
       setStep(3);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Test failed");
@@ -178,7 +197,12 @@ export function SettingsShell() {
         </div>
 
         <section className="card-premium p-6">
-          <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">1. Connect WhatsApp Cloud API</h2>
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">1. Connect WhatsApp Cloud API</h2>
+            <span className={`rounded-full px-2 py-1 text-xs font-semibold ${connected ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300" : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"}`}>
+              {connected ? "Connected ✅" : "Not connected"}
+            </span>
+          </div>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
             Paste a long-lived access token and your Phone number ID from Meta Business. Configure the
             webhook URL to{" "}
@@ -188,17 +212,42 @@ export function SettingsShell() {
             with your verify token from{" "}
             <code className="rounded bg-slate-100 px-1 py-0.5 text-xs">WHATSAPP_VERIFY_TOKEN</code>.
           </p>
+          {loadingConnection ? (
+            <div className="mt-6 space-y-2">
+              <div className="h-10 w-full animate-pulse rounded-lg bg-slate-100 dark:bg-slate-800" />
+              <div className="h-10 w-full animate-pulse rounded-lg bg-slate-100 dark:bg-slate-800" />
+              <div className="h-10 w-full animate-pulse rounded-lg bg-slate-100 dark:bg-slate-800" />
+            </div>
+          ) : (
           <form className="mt-6 space-y-4">
             <div>
               <label className="mb-1 block text-xs font-medium text-slate-600">Access token</label>
-              <input
-                type="password"
-                autoComplete="off"
-                value={accessToken}
-                onChange={(e) => setAccessToken(e.target.value)}
-                placeholder="EAAG…"
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none ring-emerald-500/20 focus:ring-2"
-              />
+              {editingToken ? (
+                <input
+                  type="password"
+                  autoComplete="off"
+                  value={accessToken}
+                  onChange={(e) => setAccessToken(e.target.value)}
+                  placeholder="EAAG…"
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none ring-emerald-500/20 focus:ring-2"
+                />
+              ) : (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    readOnly
+                    value={maskedToken ?? "Not set"}
+                    className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setEditingToken(true)}
+                    className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium hover:bg-slate-50"
+                  >
+                    Edit
+                  </button>
+                </div>
+              )}
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-slate-600">Phone number ID</label>
@@ -222,7 +271,7 @@ export function SettingsShell() {
             <button
               type="button"
               onClick={() => void handleSave()}
-              disabled={savingWa || !accessToken.trim() || !phoneNumberId.trim() || !user}
+              disabled={savingWa || !phoneNumberId.trim() || (editingToken && !accessToken.trim())}
               className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:scale-[1.02] hover:bg-emerald-700 disabled:opacity-50"
             >
               {savingWa ? "Saving…" : "Save connection"}
@@ -231,6 +280,7 @@ export function SettingsShell() {
               {testing ? "Testing..." : "Test connection"}
             </button>
           </form>
+          )}
           <div className="mt-4 flex gap-2">
             <input value={testPhone} onChange={(e) => setTestPhone(e.target.value)} placeholder="Recipient phone for test" className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900" />
             <button type="button" onClick={() => void sendTestMessage()} className="rounded-xl bg-slate-900 px-4 py-2 text-sm text-white dark:bg-slate-700">

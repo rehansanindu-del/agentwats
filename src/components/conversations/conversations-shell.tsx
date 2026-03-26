@@ -7,34 +7,50 @@ import type { Contact, Message } from "@/lib/types/database";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 
-const POLL_MS = 8000;
+interface SendMessageResponse {
+  ok: boolean;
+  message?: Message;
+  error?: string;
+}
 
 export function ConversationsShell() {
+  const supabase = useMemo(() => createClient(), []);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [searchInput, setSearchInput] = useState("");
   const [query, setQuery] = useState("");
   const [loadingList, setLoadingList] = useState(true);
   const [loadingMsgs, setLoadingMsgs] = useState(false);
   const [sending, setSending] = useState(false);
   const [draft, setDraft] = useState("");
-  const [manualMode, setManualMode] = useState(false);
-  const [aiTyping, setAiTyping] = useState(false);
+  const [manualMode, setManualMode] = useState(true);
+  const [userId, setUserId] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
-  /** Ref avoids stale closures in Realtime handlers */
-  const selectedIdRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    selectedIdRef.current = selectedId;
-  }, [selectedId]);
 
   const selected = useMemo(
     () => contacts.find((c) => c.id === selectedId) ?? null,
     [contacts, selectedId]
   );
 
+  useEffect(() => {
+    const timer = window.setTimeout(() => setQuery(searchInput.trim().toLowerCase()), 250);
+    return () => window.clearTimeout(timer);
+  }, [searchInput]);
+
+  const dedupeMessages = useCallback((rows: Message[]) => {
+    const seen = new Set<string>();
+    const out: Message[] = [];
+    for (const m of rows) {
+      const key = m.wa_message_id ? `wa:${m.wa_message_id}` : `id:${m.id}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(m);
+    }
+    return out.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+  }, []);
+
   const loadContacts = useCallback(async () => {
-    setLoadingList(true);
     try {
       const res = await fetch("/api/contacts", { cache: "no-store" });
       if (!res.ok) {
@@ -42,10 +58,9 @@ export function ConversationsShell() {
       }
       const json = (await res.json()) as { contacts: Contact[] };
       setContacts(json.contacts);
+      setSelectedId((prev) => prev ?? json.contacts[0]?.id ?? null);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Error");
-    } finally {
-      setLoadingList(false);
     }
   }, []);
 
@@ -59,17 +74,28 @@ export function ConversationsShell() {
         throw new Error("Failed to load messages");
       }
       const json = (await res.json()) as { messages: Message[] };
-      setMessages(json.messages);
+      setMessages(dedupeMessages(json.messages));
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Error");
     } finally {
       setLoadingMsgs(false);
     }
-  }, []);
+  }, [dedupeMessages]);
 
   useEffect(() => {
-    void loadContacts();
-  }, [loadContacts]);
+    void (async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) {
+        return;
+      }
+      setUserId(user.id);
+      await loadContacts();
+
+      setLoadingList(false);
+    })();
+  }, [loadContacts, supabase]);
 
   useEffect(() => {
     if (!selectedId) {
@@ -80,125 +106,89 @@ export function ConversationsShell() {
   }, [selectedId, loadMessages]);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, selectedId]);
+    if (!userId) return;
+    const channel = supabase
+      .channel(`messages-${userId}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "messages", filter: `user_id=eq.${userId}` },
+        (payload) => {
+          const row = payload.new as Message;
 
-  /** Realtime + polling so inbox updates even if Supabase Realtime is misconfigured */
-  useEffect(() => {
-    const supabase = createClient();
-    let cancelled = false;
-    let channel: ReturnType<typeof supabase.channel> | null = null;
-
-    const refreshVisible = () => {
-      void loadContacts();
-      const sid = selectedIdRef.current;
-      if (sid) {
-        void loadMessages(sid);
-      }
-    };
-
-    void (async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user || cancelled) {
-        return;
-      }
-
-      channel = supabase
-        .channel(`inbox-${user.id}`)
-        .on(
-          "postgres_changes",
-          {
-            event: "INSERT",
-            schema: "public",
-            table: "messages",
-            filter: `user_id=eq.${user.id}`,
-          },
-          (payload) => {
-            const row = payload.new as Message;
-            void loadContacts();
-            if (row.contact_id === selectedIdRef.current) {
-              setMessages((prev) => {
-                if (prev.some((m) => m.id === row.id)) {
-                  return prev;
-                }
-                return [...prev, row].sort(
-                  (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-                );
-              });
+          setContacts((prev) => {
+            const updated = prev.map((c) =>
+              c.id === row.contact_id ? { ...c, last_message: row.content } : c
+            );
+            const idx = updated.findIndex((c) => c.id === row.contact_id);
+            if (idx > 0) {
+              const [moved] = updated.splice(idx, 1);
+              updated.unshift(moved);
             }
-          }
-        )
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            table: "contacts",
-            filter: `user_id=eq.${user.id}`,
-          },
-          () => {
-            void loadContacts();
-            const sid = selectedIdRef.current;
-            if (sid) {
-              void loadMessages(sid);
-            }
-          }
-        )
-        .subscribe((status, err) => {
-          if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-            console.warn("Supabase Realtime:", status, err);
-          }
-        });
-    })();
+            return updated;
+          });
 
-    const onVisibility = () => {
-      if (document.visibilityState === "visible") {
-        refreshVisible();
-      }
-    };
-    document.addEventListener("visibilitychange", onVisibility);
-
-    const poll = window.setInterval(() => {
-      if (document.visibilityState !== "visible") {
-        return;
-      }
-      refreshVisible();
-    }, POLL_MS);
+          if (row.contact_id !== selectedId) return;
+          setMessages((prev) => dedupeMessages([...prev, row]));
+        }
+      )
+      .subscribe();
 
     return () => {
-      cancelled = true;
-      document.removeEventListener("visibilitychange", onVisibility);
-      window.clearInterval(poll);
-      if (channel) {
-        void supabase.removeChannel(channel);
-      }
+      void supabase.removeChannel(channel);
     };
-  }, [loadContacts, loadMessages]);
+  }, [dedupeMessages, selectedId, supabase, userId]);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
   async function send() {
     if (!selectedId || !draft.trim()) {
       return;
     }
+    const text = draft.trim();
+    const optimisticId = `temp-${Date.now()}`;
+    const optimisticMessage: Message = {
+      id: optimisticId,
+      user_id: userId ?? "local",
+      contact_id: selectedId,
+      content: text,
+      direction: "outgoing",
+      wa_message_id: null,
+      created_at: new Date().toISOString(),
+    };
+
+    setMessages((prev) => dedupeMessages([...prev, optimisticMessage]));
+    setContacts((prev) =>
+      prev.map((c) => (c.id === selectedId ? { ...c, last_message: text } : c))
+    );
+    setDraft("");
     setSending(true);
-    setAiTyping(false);
     try {
       const res = await fetch("/api/send-message", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contactId: selectedId, content: draft.trim() }),
+        body: JSON.stringify({ contactId: selectedId, content: text }),
       });
-      const json = (await res.json().catch(() => ({}))) as { error?: string };
+      const json = (await res.json().catch(() => ({}))) as SendMessageResponse;
       if (!res.ok) {
         throw new Error(json.error ?? "Send failed");
       }
-      setDraft("");
       setManualMode(true);
       toast.success("Message sent — AI paused until you turn it back on.");
-      await loadMessages(selectedId);
-      await loadContacts();
+      if (json.message) {
+        setMessages((prev) =>
+          dedupeMessages([
+            ...prev.filter((m) => m.id !== optimisticId),
+            json.message as Message,
+          ])
+        );
+      } else {
+        setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
+      }
     } catch (e) {
+      setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
+      setDraft(text);
       toast.error(e instanceof Error ? e.message : "Error");
     } finally {
       setSending(false);
@@ -206,15 +196,14 @@ export function ConversationsShell() {
   }
 
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) {
+    if (!query) {
       return contacts;
     }
     return contacts.filter(
       (c) =>
-        c.phone.toLowerCase().includes(q) ||
-        (c.name?.toLowerCase().includes(q) ?? false) ||
-        (c.last_message?.toLowerCase().includes(q) ?? false)
+        c.phone.toLowerCase().includes(query) ||
+        (c.name?.toLowerCase().includes(query) ?? false) ||
+        (c.last_message?.toLowerCase().includes(query) ?? false)
     );
   }, [contacts, query]);
 
@@ -225,15 +214,15 @@ export function ConversationsShell() {
       <header className="border-b border-slate-200 bg-white/80 px-8 py-6 backdrop-blur dark:border-slate-800 dark:bg-slate-950/70">
         <h1 className="text-3xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">Conversations</h1>
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-          Inbox syncs via Supabase Realtime; also refreshes every few seconds as a fallback.
+          Inbox syncs live through Supabase Realtime.
         </p>
       </header>
       <div className="flex min-h-0 flex-1 overflow-hidden">
         <div className="flex w-full max-w-sm flex-col border-r border-slate-200 bg-white/80 backdrop-blur dark:border-slate-800 dark:bg-slate-950/70">
           <div className="border-b border-slate-100 p-3 dark:border-slate-800">
             <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
               placeholder="Search contacts…"
               className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none ring-emerald-500/20 focus:ring-2 dark:border-slate-700 dark:bg-slate-900"
             />
@@ -328,13 +317,6 @@ export function ConversationsShell() {
                         </div>
                       );
                     })}
-                    {aiTyping ? (
-                      <div className="flex justify-start">
-                        <div className="rounded-2xl rounded-bl-sm bg-white px-3 py-2 text-xs text-slate-500 shadow-sm dark:bg-slate-800 dark:text-slate-300">
-                          AI is typing...
-                        </div>
-                      </div>
-                    ) : null}
                     <div ref={bottomRef} />
                   </div>
                 )}
@@ -366,7 +348,6 @@ export function ConversationsShell() {
                     type="button"
                     disabled={sending || !draft.trim()}
                     onClick={() => {
-                      setAiTyping(true);
                       void send();
                     }}
                     className="self-end rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-4 py-2 text-sm font-medium text-white hover:scale-[1.02] disabled:opacity-50"

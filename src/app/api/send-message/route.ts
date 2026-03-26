@@ -66,21 +66,25 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: msg }, { status: 502 });
   }
 
-  const { error: mErr } = await supabase.from("messages").insert({
-    user_id: auth.user.id,
-    contact_id: contact.id,
-    content,
-    direction: "outgoing",
-    wa_message_id: null,
-  });
+  const { data: inserted, error: mErr } = await supabase
+    .from("messages")
+    .insert({
+      user_id: auth.user.id,
+      contact_id: contact.id,
+      content,
+      direction: "outgoing",
+      wa_message_id: null,
+    })
+    .select("*")
+    .single();
 
-  if (mErr) {
-    return NextResponse.json({ error: mErr.message }, { status: 500 });
+  if (mErr || !inserted) {
+    return NextResponse.json({ error: mErr?.message ?? "Failed to persist message" }, { status: 500 });
   }
 
   await supabase.from("contacts").update({ last_message: content }).eq("id", contact.id);
 
   await supabase.from("bots").update({ is_active: false }).eq("user_id", auth.user.id);
 
-  return NextResponse.json({ ok: true }, { status: 200 });
+  return NextResponse.json({ ok: true, message: inserted }, { status: 200 });
 }
