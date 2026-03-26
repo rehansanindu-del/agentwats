@@ -189,7 +189,11 @@ export function SettingsShell() {
       <div className="mx-auto max-w-3xl space-y-10">
         <div>
           <h1 className="text-3xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">Settings</h1>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Manage WhatsApp Cloud API and AI assistant behavior.</p>
+          <p className="mt-1 max-w-xl text-sm text-slate-500 dark:text-slate-400">
+            Customize your AI assistant ⚙️
+            <br />
+            Connect, configure, and scale your automation.
+          </p>
           <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
             <div className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 transition-all" style={{ width: `${(step / 3) * 100}%` }} />
           </div>

@@ -94,7 +94,11 @@ export function LeadsShell() {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h1 className="text-3xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">Leads CRM</h1>
-            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Search, filter, segment and export your pipeline.</p>
+            <p className="mt-1 max-w-xl text-sm text-slate-500 dark:text-slate-400">
+              Track every opportunity 📈
+              <br />
+              Turn chats into real business.
+            </p>
           </div>
           <div className="flex flex-wrap gap-2">
             <button

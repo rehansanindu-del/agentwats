@@ -213,8 +213,10 @@ export function ConversationsShell() {
     <div className="flex h-screen min-h-0 flex-col overflow-hidden">
       <header className="shrink-0 border-b border-slate-200 bg-white/80 px-8 py-6 backdrop-blur dark:border-slate-800 dark:bg-slate-950/70">
         <h1 className="text-3xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">Conversations</h1>
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-          Inbox syncs live through Supabase Realtime.
+        <p className="mt-1 max-w-xl text-sm text-slate-500 dark:text-slate-400">
+          All your customer chats, in one place 💬
+          <br />
+          Respond faster. Close smarter.
         </p>
       </header>
       <div className="flex min-h-0 flex-1 overflow-hidden">

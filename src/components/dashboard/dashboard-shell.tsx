@@ -28,10 +28,14 @@ export function DashboardShell({
   return (
     <div className="p-6 md:p-8">
       <div className="mx-auto max-w-7xl space-y-8">
-        <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+        <div className="mb-6 flex flex-col gap-2 md:mb-8 md:flex-row md:items-end md:justify-between">
           <div>
             <h1 className="text-3xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">Dashboard</h1>
-            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Live intelligence for your WhatsApp revenue engine.</p>
+            <p className="mt-1 max-w-xl text-sm text-slate-500 dark:text-slate-400">
+              Turn conversations into customers 🚀
+              <br />
+              Your real-time WhatsApp growth dashboard.
+            </p>
           </div>
           <Badge tone="green">AI Active</Badge>
         </div>
