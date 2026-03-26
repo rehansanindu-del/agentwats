@@ -94,10 +94,11 @@ export async function POST(request: Request) {
           });
 
           const result = await processIncomingWhatsappMessage(supabase, {
-            phoneNumberId,
-            from,
-            body: msg.text.body,
-            messageId: msg.id,
+  phoneNumberId,
+  from,
+  body: msg.text.body,
+  messageId: msg.id, // 🔥 ADD THIS
+});
           });
 
           if (!result.ok) {
