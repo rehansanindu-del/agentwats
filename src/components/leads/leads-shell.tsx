@@ -51,27 +51,6 @@ export function LeadsShell() {
     );
   }, [contacts, q]);
 
-  const pipeline = useMemo(() => {
-    const groups: Record<string, Contact[]> = {
-      New: [],
-      Contacted: [],
-      Qualified: [],
-      Converted: [],
-    };
-    for (const c of rows) {
-      const stage =
-        c.tag === "hot"
-          ? "Converted"
-          : c.tag === "warm"
-            ? "Qualified"
-            : c.last_message
-              ? "Contacted"
-              : "New";
-      groups[stage].push(c);
-    }
-    return groups;
-  }, [rows]);
-
   function exportCsv() {
     const header = ["Name", "Phone", "Tag", "Last message"];
     const lines = [
@@ -160,25 +139,6 @@ export function LeadsShell() {
           </div>
         </div>
 
-        <div className="grid gap-3 md:grid-cols-4">
-          {Object.entries(pipeline).map(([stage, items]) => (
-            <div key={stage} className="card-premium p-4">
-              <div className="mb-2 flex items-center justify-between">
-                <p className="text-sm font-semibold">{stage}</p>
-                <span className="text-xs text-slate-500">{items.length}</span>
-              </div>
-              <div className="space-y-2">
-                {items.slice(0, 3).map((c) => (
-                  <button key={c.id} onClick={() => setSelected(c)} className="w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-left text-xs hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800">
-                    <div className="font-medium">{c.name ?? c.phone}</div>
-                    <div className="mt-0.5 text-slate-500">~${Math.max(120, (c.last_message?.length ?? 3) * 17)} est.</div>
-                  </button>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-
         <div className="overflow-hidden rounded-2xl border border-slate-200/70 bg-white shadow-soft dark:border-slate-800 dark:bg-slate-900">
           <table className="w-full text-left text-sm">
             <thead className="border-b border-slate-100 bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-400">
@@ -188,19 +148,18 @@ export function LeadsShell() {
                 <th className="px-4 py-3">Tag</th>
                 <th className="px-4 py-3">Last message</th>
                 <th className="px-4 py-3">Last active</th>
-                <th className="px-4 py-3">Lead value</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-6 text-slate-500 dark:text-slate-400">
+                  <td colSpan={5} className="px-4 py-6 text-slate-500 dark:text-slate-400">
                     Loading…
                   </td>
                 </tr>
               ) : rows.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-6 text-slate-500 dark:text-slate-400">
+                  <td colSpan={5} className="px-4 py-6 text-slate-500 dark:text-slate-400">
                     No leads found.
                   </td>
                 </tr>
@@ -224,7 +183,6 @@ export function LeadsShell() {
                     </td>
                     <td className="max-w-md truncate px-4 py-3 text-slate-600 dark:text-slate-400">{c.last_message ?? "—"}</td>
                     <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{new Date(c.created_at).toLocaleString()}</td>
-                    <td className="px-4 py-3 text-slate-700 dark:text-slate-300">${Math.max(120, (c.last_message?.length ?? 3) * 17)}</td>
                   </tr>
                 ))
               )}
