@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useTrial } from "@/hooks/useTrial";
 import { SkeletonText } from "@/components/ui/skeleton";
 
@@ -35,12 +36,12 @@ export function TrialBanner() {
           <p className="font-semibold">🚫 Your trial has expired</p>
           <p className="text-xs opacity-90">Upgrade to continue using AI automation</p>
         </div>
-        <button
-          type="button"
+        <Link
+          href="/contact?plan=starter"
           className="rounded-lg bg-rose-600 px-4 py-2 text-sm font-medium text-white transition-all duration-200 hover:scale-[1.02] hover:bg-rose-700"
         >
-          Upgrade
-        </button>
+          Upgrade Now
+        </Link>
       </div>
     </div>
   );

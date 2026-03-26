@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { AnimatedCounter } from "@/components/ui/animated-counter";
 import { Badge } from "@/components/ui/badge";
 import { StatCard } from "@/components/ui/stat-card";
@@ -37,7 +38,15 @@ export function DashboardShell({
               Your real-time WhatsApp growth dashboard.
             </p>
           </div>
-          <Badge tone="green">AI Active</Badge>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/contact?plan=starter"
+              className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition-all duration-200 hover:scale-[1.02] hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
+            >
+              Upgrade Plan
+            </Link>
+            <Badge tone="green">AI Active</Badge>
+          </div>
         </div>
 
         <div className="grid gap-4 md:grid-cols-3">

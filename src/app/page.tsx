@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { FeatureCard } from "@/components/ui/feature-card";
+import { Footer } from "@/components/footer";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function HomePage() {
@@ -59,7 +60,7 @@ export default async function HomePage() {
               <li>✔ Works even while you sleep</li>
             </ul>
             <div className="mt-8 flex flex-wrap gap-3">
-              <Link href="/signup" className="rounded-xl bg-emerald-600 px-6 py-3 font-semibold text-white shadow-soft transition-all hover:-translate-y-0.5 hover:scale-[1.02] hover:bg-emerald-700">
+              <Link href={user ? "/dashboard" : "/signup"} className="rounded-xl bg-emerald-600 px-6 py-3 font-semibold text-white shadow-soft transition-all hover:-translate-y-0.5 hover:scale-[1.02] hover:bg-emerald-700">
                 Start Free Trial
               </Link>
               <Link href="/login" className="rounded-xl border border-slate-300 bg-white px-6 py-3 font-semibold text-slate-800 transition-all hover:-translate-y-0.5 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800">
@@ -191,14 +192,28 @@ export default async function HomePage() {
       <section className="mx-auto max-w-7xl px-6 py-14">
         <h2 className="text-center text-3xl font-bold tracking-tight">Simple pricing for every growth stage</h2>
         <div className="mt-8 grid gap-4 md:grid-cols-3">
-          <PricingCard title="Starter" price="$29" features={["Basic inbox", "Manual replies", "Up to 1,000 messages"]} />
           <PricingCard
-            title="Pro"
-            price="$79"
-            highlight
-            features={["AI auto replies", "Lead capture", "Priority support"]}
+            title="Free Trial"
+            price="Free"
+            features={["Full access for 7 days"]}
+            ctaLabel="Start Free Trial"
+            href={user ? "/dashboard" : "/signup"}
           />
-          <PricingCard title="Business" price="$199" features={["Advanced automations", "Team seats", "Dedicated onboarding"]} />
+          <PricingCard
+            title="Starter"
+            price="$15/month"
+            highlight
+            features={["1000 messages"]}
+            ctaLabel="Choose Starter"
+            href="/contact?plan=starter"
+          />
+          <PricingCard
+            title="Business"
+            price="$99/month"
+            features={["Unlimited messages"]}
+            ctaLabel="Choose Business"
+            href="/contact?plan=business"
+          />
         </div>
       </section>
 
@@ -229,6 +244,7 @@ export default async function HomePage() {
           ))}
         </div>
       </section>
+      <Footer />
     </div>
   );
 }
@@ -237,11 +253,15 @@ function PricingCard({
   title,
   price,
   features,
+  ctaLabel,
+  href,
   highlight = false,
 }: {
   title: string;
   price: string;
   features: string[];
+  ctaLabel: string;
+  href: string;
   highlight?: boolean;
 }) {
   return (
@@ -258,14 +278,14 @@ function PricingCard({
         </span>
       ) : null}
       <h3 className="mt-3 text-lg font-semibold">{title}</h3>
-      <p className="mt-1 text-3xl font-bold">{price}<span className="text-sm font-medium text-slate-500">/mo</span></p>
+      <p className="mt-1 text-3xl font-bold">{price}</p>
       <ul className="mt-4 space-y-2 text-sm text-slate-600 dark:text-slate-300">
         {features.map((f) => (
           <li key={f}>• {f}</li>
         ))}
       </ul>
-      <Link href="/signup" className="mt-6 inline-flex rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white">
-        Choose {title}
+      <Link href={href} className="mt-6 inline-flex rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white">
+        {ctaLabel}
       </Link>
     </div>
   );
