@@ -99,7 +99,6 @@ export async function POST(request: Request) {
   body: msg.text.body,
   messageId: msg.id, // 🔥 ADD THIS
 });
-          });
 
           if (!result.ok) {
             console.error("processIncomingWhatsappMessage", result.error);
