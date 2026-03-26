@@ -20,7 +20,7 @@ export async function processIncomingWhatsappMessage(
     const { data: dup } = await supabase
       .from("messages")
       .select("id")
-      .eq("message_id", payload.messageId)
+      .eq("wa_message_id", payload.messageId)
       .maybeSingle();
     if (dup) {
       return { ok: true };
@@ -73,7 +73,7 @@ export async function processIncomingWhatsappMessage(
     contact_id: contactId,
     content: payload.body,
     direction: "incoming",
-    ...(payload.messageId ? { message_id: payload.messageId } : {}),
+    ...(payload.messageId ? { wa_message_id: payload.messageId } : {}),
   });
   if (inErr) {
     if (inErr.code === "23505" || inErr.message.includes("duplicate")) {
