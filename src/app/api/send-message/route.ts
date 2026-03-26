@@ -71,6 +71,7 @@ export async function POST(request: Request) {
     contact_id: contact.id,
     content,
     direction: "outgoing",
+    wa_message_id: null,
   });
 
   if (mErr) {

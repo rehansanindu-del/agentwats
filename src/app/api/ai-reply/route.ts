@@ -112,6 +112,7 @@ export async function POST(request: Request) {
     contact_id: contactId,
     content: replyText,
     direction: "outgoing",
+    wa_message_id: null,
   });
 
   await supabase.from("contacts").update({ last_message: replyText }).eq("id", contactId);

@@ -73,7 +73,7 @@ export async function processIncomingWhatsappMessage(
     contact_id: contactId,
     content: payload.body,
     direction: "incoming",
-    ...(payload.messageId ? { wa_message_id: payload.messageId } : {}),
+    wa_message_id: payload.messageId ?? null,
   });
   if (inErr) {
     if (inErr.code === "23505" || inErr.message.includes("duplicate")) {
@@ -134,6 +134,7 @@ export async function processIncomingWhatsappMessage(
         contact_id: contactId,
         content: replyText,
         direction: "outgoing",
+        wa_message_id: null,
       });
       if (outErr) {
         console.error("save outgoing AI", outErr);
