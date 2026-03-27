@@ -5,6 +5,9 @@ export interface User {
   id: string;
   email: string;
   created_at: string;
+  lead_fields?: string[] | null;
+  /** Keys to show in Leads table; null/undefined = show all keys present in custom_fields */
+  lead_display_fields?: string[] | null;
 }
 
 export interface WhatsappAccount {

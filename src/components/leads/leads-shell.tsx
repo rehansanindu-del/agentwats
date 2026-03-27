@@ -5,6 +5,11 @@ import * as XLSX from "xlsx";
 import { toast } from "sonner";
 import type { Contact, ContactTag } from "@/lib/types/database";
 import { SkeletonText } from "@/components/ui/skeleton";
+import { createClient } from "@/lib/supabase/client";
+import { asStringArray } from "@/lib/lead-fields";
+
+/** null = loading; "all" = show every key present on the contact; [] = none; else filter by keys */
+type LeadDisplayFilter = string[] | "all" | null;
 
 const tags: Array<ContactTag | "all"> = ["all", "hot", "warm", "cold"];
 
@@ -14,6 +19,32 @@ export function LeadsShell() {
   const [q, setQ] = useState("");
   const [tag, setTag] = useState<ContactTag | "all">("all");
   const [selected, setSelected] = useState<Contact | null>(null);
+  const [leadDisplayFilter, setLeadDisplayFilter] = useState<LeadDisplayFilter>(null);
+
+  useEffect(() => {
+    async function loadDisplayPrefs() {
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) {
+        setLeadDisplayFilter("all");
+        return;
+      }
+      const { data } = await supabase
+        .from("users")
+        .select("lead_display_fields")
+        .eq("id", user.id)
+        .maybeSingle();
+      const raw = data?.lead_display_fields;
+      if (raw === null || raw === undefined) {
+        setLeadDisplayFilter("all");
+      } else {
+        setLeadDisplayFilter(asStringArray(raw));
+      }
+    }
+    void loadDisplayPrefs();
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -177,9 +208,17 @@ export function LeadsShell() {
               ) : (
                 rows.map((c) => {
                   const fields = c.custom_fields || {};
-                  const fieldEntries = Object.entries(fields).filter(
+                  const allEntries = Object.entries(fields).filter(
                     ([, v]) => v !== null && v !== undefined && v !== ""
                   );
+                  const fieldEntries =
+                    leadDisplayFilter === null
+                      ? allEntries
+                      : leadDisplayFilter === "all"
+                        ? allEntries
+                        : leadDisplayFilter.length === 0
+                          ? []
+                          : allEntries.filter(([k]) => leadDisplayFilter.includes(k));
                   return (
                     <tr key={c.id} onClick={() => setSelected(c)} className="cursor-pointer border-b border-slate-50 transition hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800/40 last:border-0">
                       <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-100">{c.name ?? "—"}</td>

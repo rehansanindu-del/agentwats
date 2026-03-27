@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { SkeletonText } from "@/components/ui/skeleton";
 import { useTrial } from "@/hooks/useTrial";
+import { createClient } from "@/lib/supabase/client";
+import { asStringArray } from "@/lib/lead-fields";
 
 interface BotRow {
   prompt: string;
@@ -28,6 +30,89 @@ export function SettingsShell() {
   const [testPhone, setTestPhone] = useState("");
   const [testing, setTesting] = useState(false);
   const [step, setStep] = useState(1);
+
+  const [leadFields, setLeadFields] = useState<string[]>([]);
+  const [displayFields, setDisplayFields] = useState<string[]>([]);
+  const [loadingLeadDisplay, setLoadingLeadDisplay] = useState(true);
+  const [savingLeadDisplay, setSavingLeadDisplay] = useState(false);
+
+  const loadLeadDisplaySettings = useCallback(async () => {
+    setLoadingLeadDisplay(true);
+    try {
+      const supabase = createClient();
+      const {
+        data: { user: authUser },
+      } = await supabase.auth.getUser();
+      if (!authUser) {
+        setLeadFields([]);
+        setDisplayFields([]);
+        return;
+      }
+
+      const { data: user, error } = await supabase
+        .from("users")
+        .select("lead_fields, lead_display_fields")
+        .eq("id", authUser.id)
+        .single();
+
+      if (error) {
+        throw error;
+      }
+
+      const lf = asStringArray(user?.lead_fields);
+      setLeadFields(lf);
+
+      const dfRaw = user?.lead_display_fields;
+      if (dfRaw === null || dfRaw === undefined) {
+        setDisplayFields([...lf]);
+      } else {
+        setDisplayFields(asStringArray(dfRaw));
+      }
+    } catch (e) {
+      console.error("loadLeadDisplaySettings", e);
+      toast.error(e instanceof Error ? e.message : "Failed to load lead display settings");
+    } finally {
+      setLoadingLeadDisplay(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadLeadDisplaySettings();
+  }, [loadLeadDisplaySettings]);
+
+  const handleSaveLeadDisplay = async () => {
+    setSavingLeadDisplay(true);
+    try {
+      const supabase = createClient();
+      const {
+        data: { user: authUser },
+      } = await supabase.auth.getUser();
+      if (!authUser) {
+        toast.error("Not signed in");
+        return;
+      }
+
+      const { error } = await supabase
+        .from("users")
+        .update({
+          lead_display_fields: displayFields,
+        })
+        .eq("id", authUser.id);
+
+      if (error) {
+        console.error("Error saving display fields:", error);
+        toast.error(error.message);
+      } else {
+        console.log("Saved display fields:", displayFields);
+        toast.success("Lead display preferences saved");
+      }
+    } catch (e) {
+      console.error("Error saving display fields:", e);
+      toast.error(e instanceof Error ? e.message : "Save failed");
+    } finally {
+      setSavingLeadDisplay(false);
+    }
+  };
 
   const loadBot = useCallback(async () => {
     setLoadingBot(true);
@@ -357,6 +442,56 @@ export function SettingsShell() {
               Your onboarding is complete. AI automation is ready.
             </div>
           ) : null}
+        </section>
+
+        <section className="card-premium p-6">
+          <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Lead Display Settings</h3>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            Choose which fields appear in your Leads table.
+          </p>
+
+          {loadingLeadDisplay ? (
+            <div className="mt-6 space-y-2">
+              <SkeletonText className="h-4 w-48" />
+              <SkeletonText className="h-4 w-56" />
+              <SkeletonText className="h-4 w-40" />
+            </div>
+          ) : leadFields.length === 0 ? (
+            <p className="mt-4 text-sm text-slate-400 dark:text-slate-500">No fields available. Add fields first.</p>
+          ) : (
+            <>
+              <div className="mt-4 space-y-2">
+                {leadFields.map((field) => (
+                  <label
+                    key={field}
+                    className="flex cursor-pointer items-center gap-2 rounded-lg py-0.5 sm:py-1"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={displayFields.includes(field)}
+                      onChange={() => {
+                        if (displayFields.includes(field)) {
+                          setDisplayFields(displayFields.filter((f) => f !== field));
+                        } else {
+                          setDisplayFields([...displayFields, field]);
+                        }
+                      }}
+                      className="h-4 w-4 shrink-0 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 dark:border-slate-600 dark:bg-slate-900"
+                    />
+                    <span className="text-sm text-slate-700 dark:text-slate-300">{field}</span>
+                  </label>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => void handleSaveLeadDisplay()}
+                disabled={savingLeadDisplay}
+                className="mt-4 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:opacity-50 dark:hover:bg-emerald-500"
+              >
+                {savingLeadDisplay ? "Saving..." : "Save preferences"}
+              </button>
+            </>
+          )}
         </section>
       </div>
     </div>
