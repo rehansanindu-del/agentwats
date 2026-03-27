@@ -151,6 +151,7 @@ export function LeadsShell() {
                 <th className="px-4 py-3">Name</th>
                 <th className="px-4 py-3">Phone</th>
                 <th className="px-4 py-3">Tag</th>
+                <th className="px-4 py-3">Collected</th>
                 <th className="px-4 py-3">Last message</th>
                 <th className="px-4 py-3">Last active</th>
               </tr>
@@ -162,38 +163,63 @@ export function LeadsShell() {
                     <td className="px-4 py-3"><SkeletonText className="h-4 w-24" /></td>
                     <td className="px-4 py-3"><SkeletonText className="h-4 w-36" /></td>
                     <td className="px-4 py-3"><SkeletonText className="h-5 w-14 rounded-full" /></td>
+                    <td className="px-4 py-3"><SkeletonText className="h-4 w-32" /></td>
                     <td className="px-4 py-3"><SkeletonText className="h-4 w-full max-w-md" /></td>
                     <td className="px-4 py-3"><SkeletonText className="h-4 w-40" /></td>
                   </tr>
                 ))
               ) : rows.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-4 py-6 text-slate-500 dark:text-slate-400">
+                  <td colSpan={6} className="px-4 py-6 text-slate-500 dark:text-slate-400">
                     No leads found.
                   </td>
                 </tr>
               ) : (
-                rows.map((c) => (
-                  <tr key={c.id} onClick={() => setSelected(c)} className="cursor-pointer border-b border-slate-50 transition hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800/40 last:border-0">
-                    <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-100">{c.name ?? "—"}</td>
-                    <td className="px-4 py-3 text-slate-700 dark:text-slate-300">{c.phone}</td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase ${
-                          c.tag === "hot"
-                            ? "bg-rose-100 text-rose-800"
-                            : c.tag === "warm"
-                              ? "bg-amber-100 text-amber-800"
-                              : "bg-blue-100 text-blue-800"
-                        }`}
-                      >
-                        {c.tag}
-                      </span>
-                    </td>
-                    <td className="max-w-md truncate px-4 py-3 text-slate-600 dark:text-slate-400">{c.last_message ?? "—"}</td>
-                    <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{new Date(c.created_at).toLocaleString()}</td>
-                  </tr>
-                ))
+                rows.map((c) => {
+                  const fields = c.custom_fields || {};
+                  const fieldEntries = Object.entries(fields).filter(
+                    ([, v]) => v !== null && v !== undefined && v !== ""
+                  );
+                  return (
+                    <tr key={c.id} onClick={() => setSelected(c)} className="cursor-pointer border-b border-slate-50 transition hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800/40 last:border-0">
+                      <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-100">{c.name ?? "—"}</td>
+                      <td className="px-4 py-3 text-slate-700 dark:text-slate-300">{c.phone}</td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase ${
+                            c.tag === "hot"
+                              ? "bg-rose-100 text-rose-800"
+                              : c.tag === "warm"
+                                ? "bg-amber-100 text-amber-800"
+                                : "bg-blue-100 text-blue-800"
+                          }`}
+                        >
+                          {c.tag}
+                        </span>
+                      </td>
+                      <td className="max-w-[14rem] align-top px-4 py-3 text-sm text-slate-700 dark:text-slate-300">
+                        {fieldEntries.length === 0 ? (
+                          <span className="text-slate-400 dark:text-slate-500">No data collected</span>
+                        ) : (
+                          <div className="flex flex-col gap-1.5">
+                            {fieldEntries.map(([key, value]) => (
+                              <div key={key} className="leading-snug">
+                                <span className="font-semibold text-slate-900 dark:text-slate-100">{key}:</span>{" "}
+                                <span className="font-normal text-slate-600 dark:text-slate-400">
+                                  {typeof value === "object" && value !== null
+                                    ? JSON.stringify(value)
+                                    : String(value)}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </td>
+                      <td className="max-w-md truncate px-4 py-3 text-slate-600 dark:text-slate-400">{c.last_message ?? "—"}</td>
+                      <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{new Date(c.created_at).toLocaleString()}</td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
