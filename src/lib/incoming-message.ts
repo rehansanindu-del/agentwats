@@ -298,13 +298,16 @@ Return JSON only. If not found, return null values.
     console.error("classifyLeadTag", e);
   }
 
-  const { data: contactForAi } = await supabase
+  const { data: contactAuto } = await supabase
     .from("contacts")
     .select("auto_reply_enabled")
     .eq("id", contactId)
     .maybeSingle();
 
-  const allowAutoReply = contactForAi?.auto_reply_enabled !== false;
+  if (contactAuto && contactAuto.auto_reply_enabled === false) {
+    console.log("Skipping AI reply (auto reply OFF):", contactId);
+    return { ok: true };
+  }
 
   const { data: bot } = await supabase
     .from("bots")
@@ -312,7 +315,7 @@ Return JSON only. If not found, return null values.
     .eq("user_id", account.user_id)
     .maybeSingle();
 
-  if (bot?.is_active && allowAutoReply) {
+  if (bot?.is_active) {
     const language = detectLanguage(payload.body);
     try {
       const conversation: { role: "user" | "assistant"; content: string }[] = [];

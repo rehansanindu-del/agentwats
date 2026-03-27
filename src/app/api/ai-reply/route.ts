@@ -52,13 +52,21 @@ export async function POST(request: Request) {
 
   const { data: contact, error: cErr } = await supabase
     .from("contacts")
-    .select("id, phone, user_id")
+    .select("id, phone, user_id, auto_reply_enabled")
     .eq("id", contactId)
     .eq("user_id", auth.user.id)
     .maybeSingle();
 
   if (cErr || !contact) {
     return NextResponse.json({ error: "Contact not found" }, { status: 404 });
+  }
+
+  if (contact.auto_reply_enabled === false) {
+    console.log("AI blocked for this contact:", contactId);
+    return NextResponse.json({
+      success: false,
+      message: "Auto reply disabled for this contact",
+    });
   }
 
   const { data: bot } = await supabase

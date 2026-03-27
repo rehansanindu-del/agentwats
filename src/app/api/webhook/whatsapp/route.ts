@@ -131,12 +131,13 @@ export async function POST(request: Request) {
             text: msg.text?.body,
           });
 
+          /** Persists inbound message + lead logic in {@link processIncomingWhatsappMessage}. AI WhatsApp reply is skipped when `contacts.auto_reply_enabled` is false (handled there, after `contactId` is known). */
           const result = await processIncomingWhatsappMessage(supabase, {
-  phoneNumberId,
-  from,
-  body: msg.text.body,
-  messageId: msg.id, // 🔥 ADD THIS
-});
+            phoneNumberId,
+            from,
+            body: msg.text.body,
+            messageId: msg.id,
+          });
 
           if (!result.ok) {
             console.error("processIncomingWhatsappMessage", result.error);
