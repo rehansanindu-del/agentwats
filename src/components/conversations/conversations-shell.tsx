@@ -69,8 +69,10 @@ export function ConversationsShell() {
     }
   }, []);
 
-  const loadMessages = useCallback(async (contactId: string) => {
-    setLoadingMsgs(true);
+  const loadMessages = useCallback(async (contactId: string, opts?: { silent?: boolean }) => {
+    if (!opts?.silent) {
+      setLoadingMsgs(true);
+    }
     try {
       const res = await fetch(`/api/messages?contactId=${encodeURIComponent(contactId)}`, {
         cache: "no-store",
@@ -83,7 +85,9 @@ export function ConversationsShell() {
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Error");
     } finally {
-      setLoadingMsgs(false);
+      if (!opts?.silent) {
+        setLoadingMsgs(false);
+      }
     }
   }, [dedupeMessages]);
 
@@ -112,41 +116,62 @@ export function ConversationsShell() {
 
   useEffect(() => {
     if (!userId) return;
+
     const channel = supabase
-      .channel(`messages-${userId}`)
+      .channel("realtime-updates")
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "messages", filter: `user_id=eq.${userId}` },
+        {
+          event: "*",
+          schema: "public",
+          table: "messages",
+          filter: `user_id=eq.${userId}`,
+        },
         (payload) => {
-          const row = payload.new as Message;
+          console.log("Realtime message update:", payload);
 
-          setContacts((prev) => {
-            const updated = prev.map((c) =>
-              c.id === row.contact_id ? { ...c, last_message: row.content } : c
-            );
-            const idx = updated.findIndex((c) => c.id === row.contact_id);
-            if (idx > 0) {
-              const [moved] = updated.splice(idx, 1);
-              updated.unshift(moved);
-            }
-            return updated;
-          });
+          const row = (payload.new ?? payload.old) as Message | null;
+          const contactId = row?.contact_id;
 
-          if (row.contact_id !== selectedId) return;
-          if (row.direction === "incoming") {
-            setAiTyping(true);
-            if (typingTimerRef.current) {
-              window.clearTimeout(typingTimerRef.current);
+          void loadContacts();
+
+          if (selectedId && contactId && contactId === selectedId) {
+            if (payload.eventType === "INSERT" && row && row.direction === "incoming") {
+              setAiTyping(true);
+              if (typingTimerRef.current) {
+                window.clearTimeout(typingTimerRef.current);
+              }
+              typingTimerRef.current = window.setTimeout(() => setAiTyping(false), 4000);
+            } else if (payload.eventType === "INSERT" && row && row.direction === "outgoing") {
+              setAiTyping(false);
+              if (typingTimerRef.current) {
+                window.clearTimeout(typingTimerRef.current);
+                typingTimerRef.current = null;
+              }
             }
-            typingTimerRef.current = window.setTimeout(() => setAiTyping(false), 4000);
-          } else {
-            setAiTyping(false);
-            if (typingTimerRef.current) {
-              window.clearTimeout(typingTimerRef.current);
-              typingTimerRef.current = null;
-            }
+            void loadMessages(selectedId, { silent: true }).then(() => {
+              if (payload.eventType === "INSERT" && row?.direction === "incoming") {
+                setAiTyping(false);
+                if (typingTimerRef.current) {
+                  window.clearTimeout(typingTimerRef.current);
+                  typingTimerRef.current = null;
+                }
+              }
+            });
           }
-          setMessages((prev) => dedupeMessages([...prev, row]));
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "contacts",
+          filter: `user_id=eq.${userId}`,
+        },
+        (payload) => {
+          console.log("Realtime contact update:", payload);
+          void loadContacts();
         }
       )
       .subscribe();
@@ -154,7 +179,7 @@ export function ConversationsShell() {
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [dedupeMessages, selectedId, supabase, userId]);
+  }, [loadContacts, loadMessages, selectedId, supabase, userId]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -245,7 +270,19 @@ export function ConversationsShell() {
   return (
     <div className="flex h-screen min-h-0 flex-col overflow-hidden opacity-100 transition-opacity duration-300">
       <header className="shrink-0 border-b border-slate-200 bg-white/80 px-8 py-6 backdrop-blur dark:border-slate-800 dark:bg-slate-950/70">
-        <h1 className="text-3xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">Conversations</h1>
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="text-3xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">Conversations</h1>
+          <span
+            className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-800 dark:border-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200"
+            title="Realtime updates active"
+          >
+            <span className="relative flex h-2 w-2">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+            </span>
+            Live
+          </span>
+        </div>
         <p className="mt-1 max-w-xl text-sm text-slate-500 dark:text-slate-400">
           All your customer chats, in one place 💬
           <br />

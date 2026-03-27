@@ -19,6 +19,7 @@ export function LeadsShell() {
   const [selected, setSelected] = useState<Contact | null>(null);
   /** Mirrors user.lead_display_fields from Supabase */
   const [displayFields, setDisplayFields] = useState<string[] | null | undefined>(undefined);
+  const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadDisplayPrefs() {
@@ -46,11 +47,19 @@ export function LeadsShell() {
   }, []);
 
   useEffect(() => {
-    console.log("Display fields:", displayFields);
-  }, [displayFields]);
+    void (async () => {
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      setUserId(user?.id ?? null);
+    })();
+  }, []);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (opts?: { silent?: boolean }) => {
+    if (!opts?.silent) {
+      setLoading(true);
+    }
     try {
       const params = new URLSearchParams();
       if (tag !== "all") {
@@ -65,13 +74,48 @@ export function LeadsShell() {
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Error");
     } finally {
-      setLoading(false);
+      if (!opts?.silent) {
+        setLoading(false);
+      }
     }
   }, [tag]);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    setSelected((prev) => {
+      if (!prev) return null;
+      return contacts.find((c) => c.id === prev.id) ?? prev;
+    });
+  }, [contacts]);
+
+  useEffect(() => {
+    if (!userId) return;
+
+    const supabase = createClient();
+    const channel = supabase
+      .channel("realtime-updates")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "contacts",
+          filter: `user_id=eq.${userId}`,
+        },
+        (payload) => {
+          console.log("Realtime contact update:", payload);
+          void load({ silent: true });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [userId, load]);
 
   const rows = useMemo(() => {
     const s = q.trim().toLowerCase();
@@ -128,7 +172,19 @@ export function LeadsShell() {
       <div className="mx-auto max-w-6xl space-y-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h1 className="text-3xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">Leads CRM</h1>
+            <div className="flex flex-wrap items-center gap-3">
+              <h1 className="text-3xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">Leads CRM</h1>
+              <span
+                className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-800 dark:border-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200"
+                title="Realtime updates active"
+              >
+                <span className="relative flex h-2 w-2">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+                </span>
+                Live
+              </span>
+            </div>
             <p className="mt-1 max-w-xl text-sm text-slate-500 dark:text-slate-400">
               Track every opportunity 📈
               <br />
