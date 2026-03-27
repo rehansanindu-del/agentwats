@@ -134,8 +134,17 @@ Return JSON only. If not found, return null values.
       });
       console.log("RAW AI RESPONSE:", extraction?.choices?.[0]?.message?.content);
 
+      let raw = extraction.choices[0]?.message?.content || "";
+
+      console.log("RAW BEFORE CLEAN:", raw);
+
+      // Remove ```json and ```
+      raw = raw.replace(/```json/g, "").replace(/```/g, "").trim();
+
+      console.log("RAW AFTER CLEAN:", raw);
+
       try {
-        extractedData = JSON.parse(extraction.choices[0]?.message?.content || "{}");
+        extractedData = JSON.parse(raw);
       } catch (e) {
         console.error("Extraction parse error", e);
       }
