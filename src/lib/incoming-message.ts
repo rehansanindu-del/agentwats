@@ -186,9 +186,10 @@ Return JSON only. If not found, return null values.
 
   console.log("Extracted data:", extractedData);
 
+  // Fetch existing custom_fields
   const { data: contact, error: contactError } = await supabase
     .from("contacts")
-    .select("*")
+    .select("custom_fields")
     .eq("id", contactId)
     .single();
 
@@ -196,27 +197,33 @@ Return JSON only. If not found, return null values.
     console.error("Error fetching contact:", contactError);
   }
 
-  const updates: any = {};
+  const existingFields = (contact?.custom_fields as Record<string, unknown>) || {};
+  const newFields: Record<string, unknown> = {};
 
   for (const key in extractedData) {
     const value = extractedData[key];
 
-    if (value && !contact?.[key]) {
-      updates[key] = value;
+    if (value && !existingFields[key]) {
+      newFields[key] = value;
     }
   }
 
-  if (Object.keys(updates).length > 0) {
+  if (Object.keys(newFields).length > 0) {
     const { error: updateError } = await supabase
       .from("contacts")
-      .update(updates)
+      .update({
+        custom_fields: {
+          ...existingFields,
+          ...newFields,
+        },
+      })
       .eq("id", contactId);
 
     if (updateError) {
-      console.error("Error updating contact:", updateError);
+      console.error("Error updating custom_fields:", updateError);
     }
 
-    console.log("Updated contact fields:", updates);
+    console.log("Updated custom fields:", newFields);
   }
 
   const { error: inErr } = await supabase.from("messages").insert({
@@ -241,7 +248,32 @@ Return JSON only. If not found, return null values.
   const extracted = extractLeadFields(payload.body);
   if (Object.keys(extracted).length > 0) {
     console.log("lead_extraction", { contactId, extracted });
-    await supabase.from("contacts").update(extracted).eq("id", contactId);
+    const { data: cfRow, error: cfErr } = await supabase
+      .from("contacts")
+      .select("custom_fields")
+      .eq("id", contactId)
+      .single();
+    if (cfErr) {
+      console.error("Error fetching custom_fields for heuristic merge:", cfErr);
+    }
+    const existing = (cfRow?.custom_fields as Record<string, unknown>) || {};
+    const heuristicNew: Record<string, unknown> = {};
+    for (const key in extracted) {
+      const value = extracted[key as keyof typeof extracted];
+      if (value && !existing[key]) {
+        heuristicNew[key] = value;
+      }
+    }
+    if (Object.keys(heuristicNew).length > 0) {
+      const { error: hErr } = await supabase
+        .from("contacts")
+        .update({ custom_fields: { ...existing, ...heuristicNew } })
+        .eq("id", contactId);
+      if (hErr) {
+        console.error("Error updating custom_fields (heuristic):", hErr);
+      }
+      console.log("Updated custom fields (heuristic):", heuristicNew);
+    }
   }
 
   const { data: recent } = await supabase
