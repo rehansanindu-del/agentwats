@@ -338,8 +338,8 @@ export function ConversationsShell() {
           Respond faster. Close smarter.
         </p>
       </header>
-      <div className="flex min-h-0 flex-1 overflow-hidden">
-        <div className="flex min-h-0 w-full max-w-sm shrink-0 flex-col border-r border-slate-200 bg-white/80 backdrop-blur dark:border-slate-800 dark:bg-slate-950/70">
+      <div className="flex h-full min-h-0 w-full flex-1 overflow-hidden">
+        <div className="flex min-h-0 w-[320px] shrink-0 flex-col border-r border-slate-200 bg-white/80 backdrop-blur dark:border-slate-800 dark:bg-slate-950/70">
           <div className="shrink-0 border-b border-slate-100 p-3 dark:border-slate-800">
             <input
               value={searchInput}
@@ -391,82 +391,81 @@ export function ConversationsShell() {
             )}
           </div>
         </div>
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[#efeae2] dark:bg-slate-900">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-slate-100/90 dark:bg-slate-950">
           {!selected ? (
             <div className="flex h-full flex-1 items-center justify-center px-4 text-slate-400 dark:text-slate-500">
               Select a conversation to start
             </div>
           ) : (
             <>
-              <div className="shrink-0 border-b border-black/5 bg-[#f0f2f5] p-4 dark:border-slate-800 dark:bg-slate-950">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="flex min-w-0 flex-1 items-center gap-3">
-                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-slate-200 to-slate-300 text-base font-semibold text-slate-800 dark:from-slate-600 dark:to-slate-700 dark:text-slate-100">
-                      {(selected.name ?? selected.phone).slice(0, 2).toUpperCase()}
-                    </div>
-                    <div className="min-w-0">
-                      <h2 className="truncate text-lg font-semibold text-slate-900 dark:text-slate-100">
-                        {selected.name?.trim() ? selected.name : selected.phone}
-                      </h2>
-                      <p className="truncate text-sm text-slate-600 dark:text-slate-400">{selected.phone}</p>
-                      <p className="mt-0.5 text-xs text-slate-400 dark:text-slate-500">Active now</p>
-                    </div>
+              <div className="flex shrink-0 items-center justify-between border-b border-slate-200 bg-white px-6 py-4 dark:border-slate-800 dark:bg-slate-900">
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-200 text-sm font-semibold text-slate-700 dark:bg-slate-700 dark:text-slate-100">
+                    {selected.phone.replace(/\D/g, "").slice(-2) || selected.phone.slice(-2)}
                   </div>
-                  <div className="flex flex-wrap items-center gap-3 sm:justify-end">
-                    <Badge tone={selected.tag === "hot" ? "red" : selected.tag === "warm" ? "amber" : "blue"}>
-                      {selected.tag.toUpperCase()}
-                    </Badge>
-                    <div className="flex items-center gap-3 rounded-xl border border-slate-200/80 bg-white/90 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/80">
-                      <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                        Auto Reply {isAutoReply ? "ON" : "OFF"}
-                      </span>
-                      <button
-                        type="button"
-                        disabled={togglingAutoReply}
-                        onClick={() => void toggleAutoReply()}
-                        aria-pressed={isAutoReply}
-                        aria-label={isAutoReply ? "Turn auto reply off" : "Turn auto reply on"}
-                        className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition focus:outline-none focus:ring-2 focus:ring-emerald-500/40 disabled:opacity-50 ${
-                          isAutoReply ? "bg-emerald-500 dark:bg-emerald-600" : "bg-slate-300 dark:bg-slate-600"
+                  <div className="min-w-0">
+                    <h2 className="truncate text-lg font-semibold text-slate-900 dark:text-slate-100">
+                      {selected.name?.trim() || selected.phone}
+                    </h2>
+                    {selected.name?.trim() ? (
+                      <p className="truncate text-xs text-slate-400 dark:text-slate-500">{selected.phone}</p>
+                    ) : null}
+                  </div>
+                </div>
+                <div className="flex shrink-0 flex-wrap items-center justify-end gap-3">
+                  <Badge tone={selected.tag === "hot" ? "red" : selected.tag === "warm" ? "amber" : "blue"}>
+                    {selected.tag.toUpperCase()}
+                  </Badge>
+                  <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-800/80">
+                    <span className="hidden text-sm font-medium text-slate-700 sm:inline dark:text-slate-300">
+                      Auto Reply {isAutoReply ? "ON" : "OFF"}
+                    </span>
+                    <button
+                      type="button"
+                      disabled={togglingAutoReply}
+                      onClick={() => void toggleAutoReply()}
+                      aria-pressed={isAutoReply}
+                      aria-label={isAutoReply ? "Turn auto reply off" : "Turn auto reply on"}
+                      className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition focus:outline-none focus:ring-2 focus:ring-emerald-500/40 disabled:opacity-50 ${
+                        isAutoReply ? "bg-emerald-500 dark:bg-emerald-600" : "bg-slate-300 dark:bg-slate-600"
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition ${
+                          isAutoReply ? "translate-x-6" : "translate-x-1"
                         }`}
-                      >
-                        <span
-                          className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition ${
-                            isAutoReply ? "translate-x-6" : "translate-x-1"
-                          }`}
-                        />
-                      </button>
-                    </div>
+                      />
+                    </button>
                   </div>
                 </div>
               </div>
               <div
                 id="chat-container"
                 ref={chatScrollRef}
-                className="scrollbar-thin min-h-0 flex-1 overflow-y-auto px-4 py-4"
+                className="scrollbar-thin min-h-0 flex-1 overflow-y-auto px-6 py-6"
               >
                 {loadingMsgs ? (
-                  <div className="space-y-3">
+                  <div className="space-y-4">
                     <Skeleton className="h-12 w-2/3 rounded-2xl" />
                     <Skeleton className="ml-auto h-12 w-2/3 rounded-2xl" />
                     <Skeleton className="h-12 w-1/2 rounded-2xl" />
                     <Skeleton className="ml-auto h-12 w-3/5 rounded-2xl" />
                   </div>
                 ) : (
-                  <div className="mx-auto flex max-w-3xl flex-col gap-2">
+                  <div className="flex w-full flex-col space-y-4">
                     {messages.map((m) => {
                       const out = m.direction === "outgoing";
                       return (
-                        <div key={m.id} className={`flex ${out ? "justify-end" : "justify-start"}`}>
+                        <div key={m.id} className={`flex w-full ${out ? "justify-end" : "justify-start"}`}>
                           <div
-                            className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm shadow-sm transition ${
+                            className={
                               out
-                                ? "rounded-br-sm bg-[#d9fdd3] text-slate-900 dark:bg-emerald-900/40 dark:text-slate-100"
-                                : "rounded-bl-sm bg-white text-slate-900 dark:bg-slate-800 dark:text-slate-100"
-                            }`}
+                                ? "max-w-[70%] rounded-2xl bg-green-100 px-4 py-3 text-sm text-slate-900 shadow dark:bg-emerald-900/35 dark:text-slate-100"
+                                : "max-w-[70%] rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                            }
                           >
                             <div className="whitespace-pre-wrap break-words">{m.content}</div>
-                            <div className="mt-1 flex items-center justify-between text-[10px] text-slate-500 dark:text-slate-400">
+                            <div className="mt-2 flex items-center justify-between gap-2 text-[10px] text-slate-500 dark:text-slate-400">
                               <span>{new Date(m.created_at).toLocaleTimeString()}</span>
                               <span>{out ? "Delivered" : "Received"}</span>
                             </div>
@@ -476,7 +475,7 @@ export function ConversationsShell() {
                     })}
                     {aiTyping ? (
                       <div className="flex justify-start">
-                        <div className="rounded-2xl rounded-bl-sm bg-white px-3 py-2 text-xs text-slate-500 shadow-sm dark:bg-slate-800 dark:text-slate-300">
+                        <div className="max-w-[70%] rounded-2xl border border-slate-200 bg-white px-4 py-3 text-xs text-slate-500 shadow dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
                           AI is typing...
                         </div>
                       </div>
@@ -485,45 +484,43 @@ export function ConversationsShell() {
                   </div>
                 )}
               </div>
-              <div className="shrink-0 border-t border-black/5 bg-[#f0f2f5] p-3 dark:bg-slate-950">
-                <div className="mx-auto max-w-3xl space-y-2">
-                  <div className="flex flex-wrap gap-2">
-                    {quickReplies.map((q) => (
-                      <button
-                        key={q}
-                        type="button"
-                        onClick={() => setDraft(q)}
-                        className="rounded-full bg-slate-100 px-3 py-1.5 text-sm text-slate-700 transition hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
-                      >
-                        {q}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="flex gap-2">
-                    <textarea
-                      value={draft}
-                      onChange={(e) => setDraft(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && !e.shiftKey) {
-                          e.preventDefault();
-                          void send();
-                        }
-                      }}
-                      rows={2}
-                      placeholder="Type a message…"
-                      className="min-h-[48px] flex-1 resize-none rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none ring-emerald-500/20 focus:ring-2 dark:border-slate-700 dark:bg-slate-900"
-                    />
+              <div className="shrink-0 border-t border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+                <div className="flex flex-wrap gap-2 px-6 pb-2 pt-3">
+                  {quickReplies.map((q) => (
                     <button
+                      key={q}
                       type="button"
-                      disabled={sending || !draft.trim() || (!trial.loading && !trial.isActive)}
-                      onClick={() => {
-                        void send();
-                      }}
-                      className="shrink-0 self-end rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-4 py-2 text-sm font-medium text-white hover:scale-[1.02] disabled:opacity-50"
+                      onClick={() => setDraft(q)}
+                      className="rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-700 transition hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
                     >
-                      {sending ? "…" : "Send"}
+                      {q}
                     </button>
-                  </div>
+                  ))}
+                </div>
+                <div className="flex items-center gap-3 border-t border-slate-100 px-6 py-4 dark:border-slate-800">
+                  <input
+                    type="text"
+                    value={draft}
+                    onChange={(e) => setDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        void send();
+                      }
+                    }}
+                    placeholder="Type a message…"
+                    className="min-w-0 flex-1 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-900 outline-none ring-emerald-500/30 focus:ring-2 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                  />
+                  <button
+                    type="button"
+                    disabled={sending || !draft.trim() || (!trial.loading && !trial.isActive)}
+                    onClick={() => {
+                      void send();
+                    }}
+                    className="shrink-0 rounded-full bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:opacity-50 dark:bg-emerald-600 dark:hover:bg-emerald-500"
+                  >
+                    {sending ? "…" : "Send"}
+                  </button>
                 </div>
               </div>
             </>
