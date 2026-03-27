@@ -153,8 +153,6 @@ Return JSON only. If not found, return null values.
     console.error("Extraction error", e);
   }
 
-  console.log("Extracted data:", extractedData);
-
   const phone = normalizeWhatsappPhone(payload.from);
 
   const { data: existingContact } = await supabase
@@ -185,6 +183,8 @@ Return JSON only. If not found, return null values.
     }
     contactId = created.id;
   }
+
+  console.log("Extracted data:", extractedData);
 
   const { data: contact, error: contactError } = await supabase
     .from("contacts")
