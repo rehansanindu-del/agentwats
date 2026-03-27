@@ -186,6 +186,39 @@ Return JSON only. If not found, return null values.
     contactId = created.id;
   }
 
+  const { data: contact, error: contactError } = await supabase
+    .from("contacts")
+    .select("*")
+    .eq("id", contactId)
+    .single();
+
+  if (contactError) {
+    console.error("Error fetching contact:", contactError);
+  }
+
+  const updates: any = {};
+
+  for (const key in extractedData) {
+    const value = extractedData[key];
+
+    if (value && !contact?.[key]) {
+      updates[key] = value;
+    }
+  }
+
+  if (Object.keys(updates).length > 0) {
+    const { error: updateError } = await supabase
+      .from("contacts")
+      .update(updates)
+      .eq("id", contactId);
+
+    if (updateError) {
+      console.error("Error updating contact:", updateError);
+    }
+
+    console.log("Updated contact fields:", updates);
+  }
+
   const { error: inErr } = await supabase.from("messages").insert({
     user_id: account.user_id,
     contact_id: contactId,
