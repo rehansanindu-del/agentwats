@@ -98,9 +98,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: mErr?.message ?? "Failed to persist message" }, { status: 500 });
   }
 
-  await supabase.from("contacts").update({ last_message: content }).eq("id", contact.id);
-
-  await supabase.from("bots").update({ is_active: false }).eq("user_id", auth.user.id);
+  await supabase
+    .from("contacts")
+    .update({ last_message: content, auto_reply_enabled: false })
+    .eq("id", contact.id);
 
   return NextResponse.json({ ok: true, message: inserted }, { status: 200 });
 }

@@ -51,6 +51,7 @@ const patchSchema = z.object({
   id: z.string().uuid(),
   tag: z.enum(["hot", "warm", "cold"]).optional(),
   name: z.string().min(1).max(200).optional(),
+  auto_reply_enabled: z.boolean().optional(),
 });
 
 export async function PATCH(request: Request) {
@@ -72,7 +73,7 @@ export async function PATCH(request: Request) {
   }
 
   const supabase = await createClient();
-  const { id, tag, name } = parsed.data;
+  const { id, tag, name, auto_reply_enabled } = parsed.data;
 
   const updates: Record<string, unknown> = {};
   if (tag) {
@@ -80,6 +81,9 @@ export async function PATCH(request: Request) {
   }
   if (name) {
     updates.name = name;
+  }
+  if (typeof auto_reply_enabled === "boolean") {
+    updates.auto_reply_enabled = auto_reply_enabled;
   }
 
   if (Object.keys(updates).length === 0) {

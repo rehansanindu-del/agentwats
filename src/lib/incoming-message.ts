@@ -175,6 +175,7 @@ Return JSON only. If not found, return null values.
         tag: "cold",
         last_message: payload.body,
         custom_fields: {},
+        auto_reply_enabled: true,
       })
       .select("id")
       .single();
@@ -297,13 +298,21 @@ Return JSON only. If not found, return null values.
     console.error("classifyLeadTag", e);
   }
 
+  const { data: contactForAi } = await supabase
+    .from("contacts")
+    .select("auto_reply_enabled")
+    .eq("id", contactId)
+    .maybeSingle();
+
+  const allowAutoReply = contactForAi?.auto_reply_enabled !== false;
+
   const { data: bot } = await supabase
     .from("bots")
     .select("prompt, is_active")
     .eq("user_id", account.user_id)
     .maybeSingle();
 
-  if (bot?.is_active) {
+  if (bot?.is_active && allowAutoReply) {
     const language = detectLanguage(payload.body);
     try {
       const conversation: { role: "user" | "assistant"; content: string }[] = [];

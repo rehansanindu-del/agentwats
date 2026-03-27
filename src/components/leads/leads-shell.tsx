@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
 import type { Contact, ContactTag } from "@/lib/types/database";
@@ -12,11 +13,11 @@ import { asStringArray } from "@/lib/lead-fields";
 const tags: Array<ContactTag | "all"> = ["all", "hot", "warm", "cold"];
 
 export function LeadsShell() {
+  const router = useRouter();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [tag, setTag] = useState<ContactTag | "all">("all");
-  const [selected, setSelected] = useState<Contact | null>(null);
   /** Mirrors user.lead_display_fields from Supabase */
   const [displayFields, setDisplayFields] = useState<string[] | null | undefined>(undefined);
   const [userId, setUserId] = useState<string | null>(null);
@@ -83,13 +84,6 @@ export function LeadsShell() {
   useEffect(() => {
     void load();
   }, [load]);
-
-  useEffect(() => {
-    setSelected((prev) => {
-      if (!prev) return null;
-      return contacts.find((c) => c.id === prev.id) ?? prev;
-    });
-  }, [contacts]);
 
   useEffect(() => {
     if (!userId) return;
@@ -275,7 +269,13 @@ export function LeadsShell() {
                     return displayFields.includes(key);
                   });
                   return (
-                    <tr key={c.id} onClick={() => setSelected(c)} className="cursor-pointer border-b border-slate-50 transition hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800/40 last:border-0">
+                    <tr
+                      key={c.id}
+                      onClick={() => {
+                        router.push(`/conversations?phone=${encodeURIComponent(c.phone)}`);
+                      }}
+                      className="cursor-pointer border-b border-slate-50 transition hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800/40 last:border-0"
+                    >
                       <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-100">{c.name ?? "—"}</td>
                       <td className="px-4 py-3 text-slate-700 dark:text-slate-300">{c.phone}</td>
                       <td className="px-4 py-3">
@@ -320,13 +320,6 @@ export function LeadsShell() {
             </tbody>
           </table>
         </div>
-        {selected ? (
-          <div className="card-premium p-4">
-            <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">Lead details</div>
-            <div className="mt-2 text-sm text-slate-600 dark:text-slate-400">{selected.name ?? "Unnamed"} • {selected.phone}</div>
-            <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">{selected.last_message ?? "No messages yet"}</div>
-          </div>
-        ) : null}
       </div>
     </div>
   );

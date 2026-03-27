@@ -30,6 +30,8 @@ export interface Contact {
   last_message: string | null;
   custom_fields: Record<string, unknown>;
   created_at: string;
+  /** When false, AI does not auto-reply for this contact (manual takeover). */
+  auto_reply_enabled?: boolean;
 }
 
 export interface Message {

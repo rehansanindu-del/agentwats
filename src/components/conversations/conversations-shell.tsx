@@ -1,8 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
+import { normalizeWhatsappPhone } from "@/lib/whatsapp";
 import type { Contact, Message } from "@/lib/types/database";
 import { Skeleton, SkeletonAvatar, SkeletonText } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +17,10 @@ interface SendMessageResponse {
 }
 
 export function ConversationsShell() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const selectedPhone = searchParams.get("phone");
+
   const supabase = useMemo(() => createClient(), []);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -25,7 +31,7 @@ export function ConversationsShell() {
   const [loadingMsgs, setLoadingMsgs] = useState(false);
   const [sending, setSending] = useState(false);
   const [draft, setDraft] = useState("");
-  const [manualMode, setManualMode] = useState(true);
+  const [togglingAutoReply, setTogglingAutoReply] = useState(false);
   const [aiTyping, setAiTyping] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
@@ -37,6 +43,8 @@ export function ConversationsShell() {
     () => contacts.find((c) => c.id === selectedId) ?? null,
     [contacts, selectedId]
   );
+
+  const isAutoReply = selected?.auto_reply_enabled !== false;
 
   useEffect(() => {
     const timer = window.setTimeout(() => setQuery(searchInput.trim().toLowerCase()), 250);
@@ -63,11 +71,34 @@ export function ConversationsShell() {
       }
       const json = (await res.json()) as { contacts: Contact[] };
       setContacts(json.contacts);
-      setSelectedId((prev) => prev ?? json.contacts[0]?.id ?? null);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Error");
     }
   }, []);
+
+  const toggleAutoReply = useCallback(async () => {
+    if (!selectedId || !selected) return;
+    const current = selected.auto_reply_enabled !== false;
+    const next = !current;
+    setTogglingAutoReply(true);
+    try {
+      const res = await fetch("/api/contacts", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: selectedId, auto_reply_enabled: next }),
+      });
+      const json = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) {
+        throw new Error(json.error ?? "Update failed");
+      }
+      await loadContacts();
+      toast.success(next ? "Auto reply on for this chat" : "Auto reply off — you’re in control");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Error");
+    } finally {
+      setTogglingAutoReply(false);
+    }
+  }, [loadContacts, selected, selectedId]);
 
   const loadMessages = useCallback(async (contactId: string, opts?: { silent?: boolean }) => {
     if (!opts?.silent) {
@@ -105,6 +136,24 @@ export function ConversationsShell() {
       setLoadingList(false);
     })();
   }, [loadContacts, supabase]);
+
+  useEffect(() => {
+    if (loadingList) return;
+
+    if (selectedPhone) {
+      const target = normalizeWhatsappPhone(selectedPhone);
+      const found = contacts.find((c) => normalizeWhatsappPhone(c.phone) === target);
+      if (found) {
+        setSelectedId(found.id);
+      }
+      return;
+    }
+
+    setSelectedId((prev) => {
+      if (prev && contacts.some((c) => c.id === prev)) return prev;
+      return contacts[0]?.id ?? null;
+    });
+  }, [loadingList, selectedPhone, contacts]);
 
   useEffect(() => {
     if (!selectedId) {
@@ -182,10 +231,11 @@ export function ConversationsShell() {
   }, [loadContacts, loadMessages, selectedId, supabase, userId]);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-    if (chatScrollRef.current) {
-      chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
+    const el = document.getElementById("chat-container");
+    if (el) {
+      el.scrollTop = el.scrollHeight;
     }
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
   useEffect(() => {
@@ -218,7 +268,9 @@ export function ConversationsShell() {
 
     setMessages((prev) => dedupeMessages([...prev, optimisticMessage]));
     setContacts((prev) =>
-      prev.map((c) => (c.id === selectedId ? { ...c, last_message: text } : c))
+      prev.map((c) =>
+        c.id === selectedId ? { ...c, last_message: text, auto_reply_enabled: false } : c
+      )
     );
     setDraft("");
     setSending(true);
@@ -232,8 +284,8 @@ export function ConversationsShell() {
       if (!res.ok) {
         throw new Error(json.error ?? "Send failed");
       }
-      setManualMode(true);
-      toast.success("Message sent — AI paused until you turn it back on.");
+      toast.success("Message sent — auto reply paused for this chat.");
+      await loadContacts();
       if (json.message) {
         setMessages((prev) =>
           dedupeMessages([
@@ -282,6 +334,9 @@ export function ConversationsShell() {
             </span>
             Live
           </span>
+          <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700 dark:bg-green-900/40 dark:text-green-300">
+            ● Live
+          </span>
         </div>
         <p className="mt-1 max-w-xl text-sm text-slate-500 dark:text-slate-400">
           All your customer chats, in one place 💬
@@ -321,7 +376,10 @@ export function ConversationsShell() {
                   <button
                     key={c.id}
                     type="button"
-                    onClick={() => setSelectedId(c.id)}
+                    onClick={() => {
+                      setSelectedId(c.id);
+                      router.replace(`/conversations?phone=${encodeURIComponent(c.phone)}`, { scroll: false });
+                    }}
                     className={`flex w-full flex-col items-start gap-0.5 border-b border-slate-50 px-4 py-3 text-left transition hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800 ${
                       active ? "bg-emerald-50/60 dark:bg-emerald-900/20" : ""
                     }`}
@@ -341,34 +399,56 @@ export function ConversationsShell() {
         </div>
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[#efeae2] dark:bg-slate-900">
           {!selected ? (
-            <div className="flex flex-1 items-center justify-center text-sm text-slate-600 dark:text-slate-300">
-              <div className="text-center">
-                <p className="text-base font-semibold">Select a conversation</p>
-                <p className="mt-1 text-xs opacity-80">Your AI inbox is ready to engage customers in real time.</p>
-              </div>
+            <div className="flex h-full flex-1 items-center justify-center px-4 text-slate-400 dark:text-slate-500">
+              Select a conversation to start
             </div>
           ) : (
             <>
-              <div className="shrink-0 border-b border-black/5 bg-[#f0f2f5] px-4 py-3 dark:bg-slate-950">
-                <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-300 text-sm font-semibold text-slate-800">
-                  {(selected.name ?? selected.phone).slice(0, 2).toUpperCase()}
-                </div>
-                <div className="min-w-0">
-                  <div className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
-                    {selected.name ?? selected.phone}
+              <div className="shrink-0 border-b border-black/5 bg-[#f0f2f5] p-4 dark:border-slate-800 dark:bg-slate-950">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex min-w-0 flex-1 items-center gap-3">
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-slate-200 to-slate-300 text-base font-semibold text-slate-800 dark:from-slate-600 dark:to-slate-700 dark:text-slate-100">
+                      {(selected.name ?? selected.phone).slice(0, 2).toUpperCase()}
+                    </div>
+                    <div className="min-w-0">
+                      <h2 className="truncate text-lg font-semibold text-slate-900 dark:text-slate-100">
+                        {selected.name?.trim() ? selected.name : selected.phone}
+                      </h2>
+                      <p className="truncate text-sm text-slate-600 dark:text-slate-400">{selected.phone}</p>
+                      <p className="mt-0.5 text-xs text-slate-400 dark:text-slate-500">Active now</p>
+                    </div>
                   </div>
-                  <div className="truncate text-xs text-slate-600 dark:text-slate-400">{selected.phone}</div>
-                </div>
-                <div className="ml-auto flex items-center gap-2">
-                  <Badge tone={selected.tag === "hot" ? "red" : selected.tag === "warm" ? "amber" : "blue"}>{selected.tag.toUpperCase()}</Badge>
-                  <button onClick={() => setManualMode((v) => !v)} className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-medium dark:border-slate-700 dark:bg-slate-900">
-                    {manualMode ? "Manual mode" : "Take over manually"}
-                  </button>
-                </div>
+                  <div className="flex flex-wrap items-center gap-3 sm:justify-end">
+                    <Badge tone={selected.tag === "hot" ? "red" : selected.tag === "warm" ? "amber" : "blue"}>
+                      {selected.tag.toUpperCase()}
+                    </Badge>
+                    <div className="flex items-center gap-3 rounded-xl border border-slate-200/80 bg-white/90 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/80">
+                      <span className="text-sm text-slate-600 dark:text-slate-400">Auto Reply</span>
+                      <button
+                        type="button"
+                        disabled={togglingAutoReply}
+                        onClick={() => void toggleAutoReply()}
+                        aria-pressed={isAutoReply}
+                        className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition focus:outline-none focus:ring-2 focus:ring-emerald-500/40 disabled:opacity-50 ${
+                          isAutoReply ? "bg-emerald-500 dark:bg-emerald-600" : "bg-slate-300 dark:bg-slate-600"
+                        }`}
+                      >
+                        <span
+                          className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition ${
+                            isAutoReply ? "translate-x-6" : "translate-x-1"
+                          }`}
+                        />
+                      </button>
+                      <span className="text-xs text-slate-400 dark:text-slate-500">{isAutoReply ? "ON" : "OFF"}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
-              <div ref={chatScrollRef} className="scrollbar-thin min-h-0 flex-1 overflow-y-auto px-4 py-4">
+              <div
+                id="chat-container"
+                ref={chatScrollRef}
+                className="scrollbar-thin min-h-0 flex-1 overflow-y-auto px-4 py-4"
+              >
                 {loadingMsgs ? (
                   <div className="space-y-3">
                     <Skeleton className="h-12 w-2/3 rounded-2xl" />
@@ -413,7 +493,12 @@ export function ConversationsShell() {
                 <div className="mx-auto max-w-3xl space-y-2">
                   <div className="flex flex-wrap gap-2">
                     {quickReplies.map((q) => (
-                      <button key={q} onClick={() => setDraft(q)} className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800">
+                      <button
+                        key={q}
+                        type="button"
+                        onClick={() => setDraft(q)}
+                        className="rounded-full bg-slate-100 px-3 py-1.5 text-sm text-slate-700 transition hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                      >
                         {q}
                       </button>
                     ))}
@@ -430,7 +515,7 @@ export function ConversationsShell() {
                       }}
                       rows={2}
                       placeholder="Type a message…"
-                      className="min-h-[44px] flex-1 resize-none rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none ring-emerald-500/20 focus:ring-2 dark:border-slate-700 dark:bg-slate-900"
+                      className="min-h-[48px] flex-1 resize-none rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none ring-emerald-500/20 focus:ring-2 dark:border-slate-700 dark:bg-slate-900"
                     />
                     <button
                       type="button"
