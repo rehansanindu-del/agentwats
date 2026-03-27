@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import OpenAI from "openai";
 import { classifyLeadTag, generateAssistantReply } from "@/lib/openai";
 import { normalizeWhatsappPhone, sendWhatsappTextMessage } from "@/lib/whatsapp";
 
@@ -103,6 +104,47 @@ export async function processIncomingWhatsappMessage(
 
   const leadFields = user?.lead_fields || ["name", "service", "budget"];
   console.log("Lead fields:", leadFields);
+  console.log("🚀 EXTRACTION STARTED");
+
+  const extractionPrompt = `
+Extract the following fields from this message:
+
+Fields:
+${leadFields.join(", ")}
+
+Message:
+"${payload.body}"
+
+Return JSON only. If not found, return null values.
+`;
+
+  let extractedData: Record<string, unknown> = {};
+  try {
+    const key = process.env.OPENAI_API_KEY;
+    if (!key) {
+      console.error("Extraction error: OPENAI_API_KEY is not configured");
+    } else {
+      const openai = new OpenAI({ apiKey: key });
+      const extraction = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          { role: "system", content: "You extract structured data from messages." },
+          { role: "user", content: extractionPrompt },
+        ],
+      });
+      console.log("RAW AI RESPONSE:", extraction?.choices?.[0]?.message?.content);
+
+      try {
+        extractedData = JSON.parse(extraction.choices[0]?.message?.content || "{}");
+      } catch (e) {
+        console.error("Extraction parse error", e);
+      }
+    }
+  } catch (e) {
+    console.error("Extraction error", e);
+  }
+
+  console.log("Extracted data:", extractedData);
 
   const phone = normalizeWhatsappPhone(payload.from);
 
