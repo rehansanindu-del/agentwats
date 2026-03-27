@@ -21,6 +21,8 @@ export interface Contact {
   user_id: string;
   phone: string;
   name: string | null;
+  service_interest?: string | null;
+  budget?: string | null;
   tag: ContactTag;
   last_message: string | null;
   custom_fields: Record<string, unknown>;

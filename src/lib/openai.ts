@@ -56,12 +56,38 @@ export async function generateAssistantReply(input: {
   conversation: { role: "user" | "assistant"; content: string }[];
 }): Promise<string> {
   const client = getClient();
+  const SALES_SYSTEM_PROMPT = `You are a professional WhatsApp sales assistant.
+
+Your goals:
+- Respond like a real human (friendly, natural tone)
+- Keep replies short (max 2-3 lines)
+- Help user quickly
+- Ask smart follow-up questions
+- Capture lead details (name, requirement, budget)
+
+Conversation style:
+- No long paragraphs
+- No robotic replies
+- Use emojis lightly (😊👍)
+- Be helpful and confident
+
+Language:
+- Detect user's language automatically
+- Reply in same language (Sinhala / Tamil / English)
+
+Business context:
+- Use business name, services, and pricing if available
+
+Sales behavior:
+- Guide user toward decision
+- Suggest next step (call, booking, etc.)`;
+
   const completion = await client.chat.completions.create({
     model: "gpt-4o",
     temperature: 0.4,
     messages: [
-      { role: "system", content: input.systemPrompt },
-      ...input.conversation.map((m) => ({
+      { role: "system", content: `${SALES_SYSTEM_PROMPT}\n\n${input.systemPrompt}`.trim() },
+      ...input.conversation.slice(-10).map((m) => ({
         role: m.role,
         content: m.content,
       })),

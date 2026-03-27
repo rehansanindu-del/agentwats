@@ -76,7 +76,7 @@ export async function POST(request: Request) {
     .select("content, direction")
     .eq("contact_id", contactId)
     .order("created_at", { ascending: true })
-    .limit(40);
+    .limit(10);
 
   if (!history?.length) {
     return NextResponse.json({ error: "No messages for this contact" }, { status: 400 });
@@ -92,8 +92,10 @@ export async function POST(request: Request) {
 
   let replyText: string;
   try {
+    const latestIncoming =
+      [...history].reverse().find((m) => m.direction === "incoming")?.content ?? "";
     replyText = await generateAssistantReply({
-      systemPrompt: bot.prompt,
+      systemPrompt: `${bot.prompt}\nLatest customer message: ${latestIncoming}`,
       conversation,
     });
   } catch (e) {

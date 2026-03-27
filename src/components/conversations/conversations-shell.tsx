@@ -26,8 +26,11 @@ export function ConversationsShell() {
   const [sending, setSending] = useState(false);
   const [draft, setDraft] = useState("");
   const [manualMode, setManualMode] = useState(true);
+  const [aiTyping, setAiTyping] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
+  const chatScrollRef = useRef<HTMLDivElement | null>(null);
+  const typingTimerRef = useRef<number | null>(null);
   const trial = useTrial();
 
   const selected = useMemo(
@@ -130,6 +133,19 @@ export function ConversationsShell() {
           });
 
           if (row.contact_id !== selectedId) return;
+          if (row.direction === "incoming") {
+            setAiTyping(true);
+            if (typingTimerRef.current) {
+              window.clearTimeout(typingTimerRef.current);
+            }
+            typingTimerRef.current = window.setTimeout(() => setAiTyping(false), 4000);
+          } else {
+            setAiTyping(false);
+            if (typingTimerRef.current) {
+              window.clearTimeout(typingTimerRef.current);
+              typingTimerRef.current = null;
+            }
+          }
           setMessages((prev) => dedupeMessages([...prev, row]));
         }
       )
@@ -142,7 +158,18 @@ export function ConversationsShell() {
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (chatScrollRef.current) {
+      chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
+    }
   }, [messages]);
+
+  useEffect(() => {
+    return () => {
+      if (typingTimerRef.current) {
+        window.clearTimeout(typingTimerRef.current);
+      }
+    };
+  }, []);
 
   async function send() {
     if (!trial.loading && !trial.isActive) {
@@ -304,7 +331,7 @@ export function ConversationsShell() {
                 </div>
                 </div>
               </div>
-              <div className="scrollbar-thin min-h-0 flex-1 overflow-y-auto px-4 py-4">
+              <div ref={chatScrollRef} className="scrollbar-thin min-h-0 flex-1 overflow-y-auto px-4 py-4">
                 {loadingMsgs ? (
                   <div className="space-y-3">
                     <Skeleton className="h-12 w-2/3 rounded-2xl" />
@@ -334,6 +361,13 @@ export function ConversationsShell() {
                         </div>
                       );
                     })}
+                    {aiTyping ? (
+                      <div className="flex justify-start">
+                        <div className="rounded-2xl rounded-bl-sm bg-white px-3 py-2 text-xs text-slate-500 shadow-sm dark:bg-slate-800 dark:text-slate-300">
+                          AI is typing...
+                        </div>
+                      </div>
+                    ) : null}
                     <div ref={bottomRef} />
                   </div>
                 )}
