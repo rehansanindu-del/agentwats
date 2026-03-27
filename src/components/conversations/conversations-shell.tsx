@@ -44,7 +44,7 @@ export function ConversationsShell() {
     [contacts, selectedId]
   );
 
-  const isAutoReply = selected?.auto_reply_enabled !== false;
+  const isAutoReply = selected?.auto_reply_enabled ?? true;
 
   useEffect(() => {
     const timer = window.setTimeout(() => setQuery(searchInput.trim().toLowerCase()), 250);
@@ -77,28 +77,32 @@ export function ConversationsShell() {
   }, []);
 
   const toggleAutoReply = useCallback(async () => {
-    if (!selectedId || !selected) return;
-    const current = selected.auto_reply_enabled !== false;
-    const next = !current;
+    if (!selected) return;
+
+    const current = selected.auto_reply_enabled ?? true;
+    const newValue = !current;
+
     setTogglingAutoReply(true);
     try {
-      const res = await fetch("/api/contacts", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: selectedId, auto_reply_enabled: next }),
-      });
-      const json = (await res.json().catch(() => ({}))) as { error?: string };
-      if (!res.ok) {
-        throw new Error(json.error ?? "Update failed");
+      const { error } = await supabase
+        .from("contacts")
+        .update({ auto_reply_enabled: newValue })
+        .eq("id", selected.id);
+
+      if (error) {
+        console.error("Toggle error:", error);
+        toast.error(error.message);
+        return;
       }
-      await loadContacts();
-      toast.success(next ? "Auto reply on for this chat" : "Auto reply off — you’re in control");
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Error");
+
+      setContacts((prev) =>
+        prev.map((c) => (c.id === selected.id ? { ...c, auto_reply_enabled: newValue } : c))
+      );
+      toast.success(newValue ? "Auto reply on for this chat" : "Auto reply off for this chat");
     } finally {
       setTogglingAutoReply(false);
     }
-  }, [loadContacts, selected, selectedId]);
+  }, [selected, supabase]);
 
   const loadMessages = useCallback(async (contactId: string, opts?: { silent?: boolean }) => {
     if (!opts?.silent) {
@@ -177,8 +181,6 @@ export function ConversationsShell() {
           filter: `user_id=eq.${userId}`,
         },
         (payload) => {
-          console.log("Realtime message update:", payload);
-
           const row = (payload.new ?? payload.old) as Message | null;
           const contactId = row?.contact_id;
 
@@ -218,8 +220,7 @@ export function ConversationsShell() {
           table: "contacts",
           filter: `user_id=eq.${userId}`,
         },
-        (payload) => {
-          console.log("Realtime contact update:", payload);
+        () => {
           void loadContacts();
         }
       )
@@ -325,16 +326,9 @@ export function ConversationsShell() {
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="text-3xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">Conversations</h1>
           <span
-            className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-800 dark:border-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200"
+            className="ml-2 rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700 dark:bg-green-900/40 dark:text-green-300"
             title="Realtime updates active"
           >
-            <span className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
-            </span>
-            Live
-          </span>
-          <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700 dark:bg-green-900/40 dark:text-green-300">
             ● Live
           </span>
         </div>
@@ -423,12 +417,15 @@ export function ConversationsShell() {
                       {selected.tag.toUpperCase()}
                     </Badge>
                     <div className="flex items-center gap-3 rounded-xl border border-slate-200/80 bg-white/90 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/80">
-                      <span className="text-sm text-slate-600 dark:text-slate-400">Auto Reply</span>
+                      <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                        Auto Reply {isAutoReply ? "ON" : "OFF"}
+                      </span>
                       <button
                         type="button"
                         disabled={togglingAutoReply}
                         onClick={() => void toggleAutoReply()}
                         aria-pressed={isAutoReply}
+                        aria-label={isAutoReply ? "Turn auto reply off" : "Turn auto reply on"}
                         className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition focus:outline-none focus:ring-2 focus:ring-emerald-500/40 disabled:opacity-50 ${
                           isAutoReply ? "bg-emerald-500 dark:bg-emerald-600" : "bg-slate-300 dark:bg-slate-600"
                         }`}
@@ -439,7 +436,6 @@ export function ConversationsShell() {
                           }`}
                         />
                       </button>
-                      <span className="text-xs text-slate-400 dark:text-slate-500">{isAutoReply ? "ON" : "OFF"}</span>
                     </div>
                   </div>
                 </div>
