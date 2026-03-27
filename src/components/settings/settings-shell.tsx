@@ -33,8 +33,23 @@ export function SettingsShell() {
 
   const [leadFields, setLeadFields] = useState<string[]>([]);
   const [displayFields, setDisplayFields] = useState<string[]>([]);
+  const [newField, setNewField] = useState("");
   const [loadingLeadDisplay, setLoadingLeadDisplay] = useState(true);
   const [savingLeadDisplay, setSavingLeadDisplay] = useState(false);
+
+  const handleAddField = () => {
+    const field = newField.trim().toLowerCase();
+
+    if (!field) return;
+
+    if (leadFields.includes(field)) {
+      console.log("Field already exists");
+      return;
+    }
+
+    setLeadFields([...leadFields, field]);
+    setNewField("");
+  };
 
   const loadLeadDisplaySettings = useCallback(async () => {
     setLoadingLeadDisplay(true);
@@ -59,14 +74,17 @@ export function SettingsShell() {
         throw error;
       }
 
-      const lf = asStringArray(user?.lead_fields);
+      const lf = Array.from(
+        new Set(asStringArray(user?.lead_fields).map((s) => s.trim().toLowerCase()).filter(Boolean))
+      );
       setLeadFields(lf);
 
       const dfRaw = user?.lead_display_fields;
       if (dfRaw === null || dfRaw === undefined) {
         setDisplayFields([...lf]);
       } else {
-        setDisplayFields(asStringArray(dfRaw));
+        const df = asStringArray(dfRaw).map((s) => s.trim().toLowerCase());
+        setDisplayFields(df.filter((f) => lf.includes(f)));
       }
     } catch (e) {
       console.error("loadLeadDisplaySettings", e);
@@ -92,10 +110,13 @@ export function SettingsShell() {
         return;
       }
 
+      const displaySynced = displayFields.filter((f) => leadFields.includes(f));
+
       const { error } = await supabase
         .from("users")
         .update({
-          lead_display_fields: displayFields,
+          lead_fields: leadFields,
+          lead_display_fields: displaySynced,
         })
         .eq("id", authUser.id);
 
@@ -103,7 +124,9 @@ export function SettingsShell() {
         console.error("Error saving display fields:", error);
         toast.error(error.message);
       } else {
-        console.log("Saved display fields:", displayFields);
+        setDisplayFields(displaySynced);
+        console.log("Saved lead fields:", leadFields);
+        console.log("Saved display fields:", displaySynced);
         toast.success("Lead display preferences saved");
       }
     } catch (e) {
@@ -456,32 +479,66 @@ export function SettingsShell() {
               <SkeletonText className="h-4 w-56" />
               <SkeletonText className="h-4 w-40" />
             </div>
-          ) : leadFields.length === 0 ? (
-            <p className="mt-4 text-sm text-slate-400 dark:text-slate-500">No fields available. Add fields first.</p>
           ) : (
             <>
-              <div className="mt-4 space-y-2">
-                {leadFields.map((field) => (
-                  <label
-                    key={field}
-                    className="flex cursor-pointer items-center gap-2 rounded-lg py-0.5 sm:py-1"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={displayFields.includes(field)}
-                      onChange={() => {
-                        if (displayFields.includes(field)) {
-                          setDisplayFields(displayFields.filter((f) => f !== field));
-                        } else {
-                          setDisplayFields([...displayFields, field]);
-                        }
-                      }}
-                      className="h-4 w-4 shrink-0 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 dark:border-slate-600 dark:bg-slate-900"
-                    />
-                    <span className="text-sm text-slate-700 dark:text-slate-300">{field}</span>
-                  </label>
-                ))}
+              <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-stretch">
+                <input
+                  type="text"
+                  value={newField}
+                  onChange={(e) => setNewField(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleAddField();
+                    }
+                  }}
+                  placeholder="Add new field (e.g. location)"
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none ring-emerald-500/20 focus:ring-2 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                />
+                <button
+                  type="button"
+                  onClick={handleAddField}
+                  className="shrink-0 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700 dark:hover:bg-emerald-500"
+                >
+                  Add
+                </button>
               </div>
+
+              {leadFields.length === 0 ? (
+                <p className="mt-4 text-sm text-slate-400 dark:text-slate-500">No fields available. Add fields first.</p>
+              ) : (
+                <div className="mt-4 space-y-2">
+                  {leadFields.map((field) => (
+                    <div key={field} className="flex items-center justify-between gap-3 rounded-lg py-0.5 sm:py-1">
+                      <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={displayFields.includes(field)}
+                          onChange={() => {
+                            if (displayFields.includes(field)) {
+                              setDisplayFields(displayFields.filter((f) => f !== field));
+                            } else {
+                              setDisplayFields([...displayFields, field]);
+                            }
+                          }}
+                          className="h-4 w-4 shrink-0 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 dark:border-slate-600 dark:bg-slate-900"
+                        />
+                        <span className="truncate text-sm text-slate-700 dark:text-slate-300">{field}</span>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setLeadFields(leadFields.filter((f) => f !== field));
+                          setDisplayFields(displayFields.filter((f) => f !== field));
+                        }}
+                        className="shrink-0 text-sm text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
               <button
                 type="button"
                 onClick={() => void handleSaveLeadDisplay()}
