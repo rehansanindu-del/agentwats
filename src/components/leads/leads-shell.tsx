@@ -8,9 +8,7 @@ import { SkeletonText } from "@/components/ui/skeleton";
 import { createClient } from "@/lib/supabase/client";
 import { asStringArray } from "@/lib/lead-fields";
 
-/** null = loading; "all" = show every key present on the contact; [] = none; else filter by keys */
-type LeadDisplayFilter = string[] | "all" | null;
-
+/** undefined = prefs loading; null = no saved preference (show all); [] = saved empty selection */
 const tags: Array<ContactTag | "all"> = ["all", "hot", "warm", "cold"];
 
 export function LeadsShell() {
@@ -19,7 +17,8 @@ export function LeadsShell() {
   const [q, setQ] = useState("");
   const [tag, setTag] = useState<ContactTag | "all">("all");
   const [selected, setSelected] = useState<Contact | null>(null);
-  const [leadDisplayFilter, setLeadDisplayFilter] = useState<LeadDisplayFilter>(null);
+  /** Mirrors user.lead_display_fields from Supabase */
+  const [displayFields, setDisplayFields] = useState<string[] | null | undefined>(undefined);
 
   useEffect(() => {
     async function loadDisplayPrefs() {
@@ -28,7 +27,7 @@ export function LeadsShell() {
         data: { user },
       } = await supabase.auth.getUser();
       if (!user) {
-        setLeadDisplayFilter("all");
+        setDisplayFields(null);
         return;
       }
       const { data } = await supabase
@@ -38,13 +37,17 @@ export function LeadsShell() {
         .maybeSingle();
       const raw = data?.lead_display_fields;
       if (raw === null || raw === undefined) {
-        setLeadDisplayFilter("all");
+        setDisplayFields(null);
       } else {
-        setLeadDisplayFilter(asStringArray(raw));
+        setDisplayFields(asStringArray(raw));
       }
     }
     void loadDisplayPrefs();
   }, []);
+
+  useEffect(() => {
+    console.log("Display fields:", displayFields);
+  }, [displayFields]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -208,17 +211,13 @@ export function LeadsShell() {
               ) : (
                 rows.map((c) => {
                   const fields = c.custom_fields || {};
-                  const allEntries = Object.entries(fields).filter(
-                    ([, v]) => v !== null && v !== undefined && v !== ""
-                  );
-                  const fieldEntries =
-                    leadDisplayFilter === null
-                      ? allEntries
-                      : leadDisplayFilter === "all"
-                        ? allEntries
-                        : leadDisplayFilter.length === 0
-                          ? []
-                          : allEntries.filter(([k]) => leadDisplayFilter.includes(k));
+                  const fieldEntries = Object.entries(fields).filter(([key, value]) => {
+                    if (value === null || value === undefined || value === "") return false;
+
+                    if (!displayFields || displayFields.length === 0) return true;
+
+                    return displayFields.includes(key);
+                  });
                   return (
                     <tr key={c.id} onClick={() => setSelected(c)} className="cursor-pointer border-b border-slate-50 transition hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800/40 last:border-0">
                       <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-100">{c.name ?? "—"}</td>
@@ -237,7 +236,9 @@ export function LeadsShell() {
                         </span>
                       </td>
                       <td className="max-w-[14rem] align-top px-4 py-3 text-sm text-slate-700 dark:text-slate-300">
-                        {fieldEntries.length === 0 ? (
+                        {displayFields !== undefined && displayFields !== null && displayFields.length === 0 ? (
+                          <span className="text-slate-400">No fields selected</span>
+                        ) : fieldEntries.length === 0 ? (
                           <span className="text-slate-400 dark:text-slate-500">No data collected</span>
                         ) : (
                           <div className="flex flex-col gap-1.5">
